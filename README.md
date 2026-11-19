@@ -106,7 +106,7 @@ curl -N -X POST http://localhost:3333/api/surveys/s-atlas-q3/synthesis \
 - **`InsightProvider`** como contrato da síntese: provider local extrativo (frequências por tema + citação representativa com id da resposta) e provider Claude opcional. ([ADR 0001](docs/adr/0001-insight-provider-com-fallback-local.md))
 - **Rastreabilidade**: citações `[#id]` geradas pelo modelo são validadas contra o conjunto de fontes enviado; ids inexistentes são descartados e a citação usa o texto real da resposta, nunca o texto do modelo.
 - **Cancelamento e retry**: o cancelamento do cliente aborta o stream (AbortController ponta a ponta); o retry com backoff exponencial só reexecuta erros transitórios (429, 5xx, conexão) e respeita o abort.
-- **Segurança**: validação Zod em toda entrada, ids com regex restrita, busca parametrizada com `instr()` (sem curingas de `LIKE`), CORS por lista de origens, `secureHeaders`, limite de corpo de 16 KB, rate limit por IP, comentários tratados como dados no prompt (mitigação de prompt injection).
+- **Segurança** (sem autenticação por ser demo; antes de expor o provider Claude publicamente, adicione auth e orçamento de chamadas): validação Zod em toda entrada, ids com regex restrita, busca parametrizada com `instr()` (sem curingas de `LIKE`), CORS por lista de origens, `secureHeaders`, limite de corpo de 16 KB, rate limit por IP, comentários tratados como dados no prompt (mitigação de prompt injection).
 
 ## Testes
 
