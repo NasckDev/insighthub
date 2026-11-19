@@ -3,7 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "scripts": {},
+  "scripts": {
+    "dev": "vite",
+    "dev:mock": "vite --mode mock",
+    "build": "vite build",
+    "build:portable": "vite build && node scripts/check-portable.mjs",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
   "dependencies": {
     "@tanstack/react-query": "^5.108.1",
     "@tanstack/react-router": "^1.170.46",
