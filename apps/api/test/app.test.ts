@@ -2,6 +2,7 @@ import { createLocalInsightProvider } from '@insighthub/core';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../src/app';
 import { createDatabase, ensureSchema, seedIfEmpty } from '../src/db/client';
+import { loadEnv } from '../src/env';
 import { createSurveyRepository } from '../src/repositories/survey-repository';
 
 interface Envelope {
@@ -11,7 +12,7 @@ interface Envelope {
   meta: Record<string, unknown> | null;
 }
 
-function buildApp(rateLimitPerMinute = 1_000) {
+function buildApp(rateLimitPerMinute = 1_000, synthesisToken?: string) {
   const db = createDatabase(':memory:');
   const app = createApp({
     repo: createSurveyRepository(db),
@@ -19,6 +20,7 @@ function buildApp(rateLimitPerMinute = 1_000) {
     corsOrigins: ['http://localhost:5173'],
     rateLimitPerMinute,
     synthesisLimitPerMinute: 5,
+    synthesisToken,
   });
   return { db, app };
 }
@@ -44,7 +46,9 @@ describe('InsightHub API', () => {
   });
 
   it('paginates and filters responses', async () => {
-    const { body } = await getJson('/api/surveys/s-atlas-q3/responses?plan=enterprise&nps=promoter&pageSize=5');
+    const { body } = await getJson(
+      '/api/surveys/s-atlas-q3/responses?plan=enterprise&nps=promoter&pageSize=5',
+    );
     const items = body.data as { plan: string; npsScore: number }[];
     expect(items).toHaveLength(5);
     expect(items.every((r) => r.plan === 'enterprise' && r.npsScore >= 9)).toBe(true);
@@ -101,5 +105,60 @@ describe('rate limiting', () => {
     const statuses = [];
     for (let i = 0; i < 3; i += 1) statuses.push((await app.request('/api/health')).status);
     expect(statuses).toEqual([200, 200, 429]);
+  });
+});
+
+describe('synthesis authentication', () => {
+  const token = 'segredo-de-teste-123456';
+  const { db, app } = buildApp(1_000, token);
+
+  beforeAll(async () => {
+    await ensureSchema(db);
+    await seedIfEmpty(db);
+  });
+
+  function postSynthesis(headers: Record<string, string> = {}) {
+    return app.request('/api/surveys/s-atlas-q3/synthesis', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...headers },
+      body: JSON.stringify({ filters: {} }),
+    });
+  }
+
+  it('rejects a missing token with 401', async () => {
+    const res = await postSynthesis();
+    expect(res.status).toBe(401);
+    expect(res.headers.get('www-authenticate')).toBe('Bearer');
+    expect(((await res.json()) as Envelope).error?.code).toBe('UNAUTHORIZED');
+  });
+
+  it('rejects a wrong token with 401', async () => {
+    expect((await postSynthesis({ authorization: 'Bearer outro-token-qualquer' })).status).toBe(401);
+    expect((await postSynthesis({ authorization: token })).status).toBe(401);
+  });
+
+  it('accepts the right token', async () => {
+    const res = await postSynthesis({ authorization: `Bearer ${token}` });
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain('event: done');
+  });
+
+  it('keeps read endpoints open', async () => {
+    expect((await app.request('/api/surveys')).status).toBe(200);
+  });
+});
+
+describe('environment', () => {
+  it('refuses to start with the Claude provider and no API token', () => {
+    expect(() => loadEnv({ ANTHROPIC_API_KEY: 'sk-test' })).toThrow(/INSIGHTHUB_API_TOKEN/);
+  });
+
+  it('accepts the Claude provider when a token is set', () => {
+    const env = loadEnv({ ANTHROPIC_API_KEY: 'sk-test', INSIGHTHUB_API_TOKEN: 'x'.repeat(16) });
+    expect(env.INSIGHTHUB_API_TOKEN).toHaveLength(16);
+  });
+
+  it('does not require a token with the local provider', () => {
+    expect(loadEnv({}).INSIGHTHUB_API_TOKEN).toBeUndefined();
   });
 });

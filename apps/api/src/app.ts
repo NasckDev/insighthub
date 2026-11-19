@@ -3,6 +3,7 @@ import { Hono, type Context } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { cors } from 'hono/cors';
 import { secureHeaders } from 'hono/secure-headers';
+import { requireBearerToken } from './http/auth';
 import { fail, HttpError, ok } from './http/envelope';
 import { rateLimit } from './http/rate-limit';
 import { logger } from './logger';
@@ -16,6 +17,8 @@ export interface AppDependencies {
   corsOrigins: string[];
   rateLimitPerMinute: number;
   synthesisLimitPerMinute: number;
+  /** When set, POST /synthesis requires `Authorization: Bearer <token>`. */
+  synthesisToken?: string;
   clientKey?: (c: Context) => string;
 }
 
@@ -31,6 +34,8 @@ export function createApp(deps: AppDependencies) {
   app.use('/api/*', rateLimit({ limit: deps.rateLimitPerMinute, windowMs: MINUTE_MS, keyOf }));
   app.use(
     '/api/surveys/:id/synthesis',
+    // Auth first, so unauthenticated calls never spend the rate limit or reach a paid provider.
+    ...(deps.synthesisToken ? [requireBearerToken(deps.synthesisToken)] : []),
     rateLimit({ limit: deps.synthesisLimitPerMinute, windowMs: MINUTE_MS, keyOf }),
     bodyLimit({
       maxSize: MAX_BODY_BYTES,

@@ -21,7 +21,7 @@ export function fail(error: ApiError): ApiEnvelope<null> {
   return { success: false, data: null, error, meta: null };
 }
 
-export type HttpStatus = 400 | 404 | 413 | 429 | 500;
+export type HttpStatus = 400 | 401 | 404 | 413 | 429 | 500;
 
 export class HttpError extends Error {
   constructor(

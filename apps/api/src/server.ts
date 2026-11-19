@@ -28,6 +28,7 @@ const app = createApp({
   corsOrigins: env.CORS_ORIGINS,
   rateLimitPerMinute: env.RATE_LIMIT_PER_MINUTE,
   synthesisLimitPerMinute: env.SYNTHESIS_LIMIT_PER_MINUTE,
+  synthesisToken: env.INSIGHTHUB_API_TOKEN,
   clientKey,
 });
 
