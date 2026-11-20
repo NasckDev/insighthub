@@ -1,18 +1,22 @@
 import { Link, Outlet, useNavigate, useParams, useRouterState } from '@tanstack/react-router';
-import { Command, Compass, Ellipsis, Keyboard, Search } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Command, Compass, Ellipsis, Keyboard, Plug, Search } from 'lucide-react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { DEFAULT_SURVEY_ID } from '../lib/constants';
 import { GO_TARGETS, isTypingTarget, type GoKey } from '../lib/shortcuts';
 import { useFaultMode, type FaultController, type FaultMode } from '../data';
 import { useClient } from './app-context';
-import { CommandPalette } from './command-palette';
+import { useConnection } from './connection';
 import { Logo, LogoMark } from './logo';
 import { Modal } from './modal';
 import { PageTransition } from './motion';
 import { NAV_ITEMS, PAGE_TITLES, type NavItem } from './nav-items';
-import { ShortcutsModal } from './shortcuts-modal';
 import { applyNextTheme, ThemeToggle } from './theme-toggle';
 import { Tour } from './tour';
+import { tour } from '../lib/tour-store';
+
+// Opened on demand, so they stay out of the first-paint bundle.
+const CommandPalette = lazy(() => import('./command-palette').then((m) => ({ default: m.CommandPalette })));
+const ShortcutsModal = lazy(() => import('./shortcuts-modal').then((m) => ({ default: m.ShortcutsModal })));
 
 const FAULT_OPTIONS: { value: FaultMode; label: string }[] = [
   { value: 'none', label: 'Tudo normal' },
@@ -29,7 +33,7 @@ function FaultSimulator({ controller }: { controller: FaultController }) {
     <label className="flex items-center gap-2 text-xs">
       <span>Simular</span>
       <select
-        className="rounded-md border px-2 py-0.5 text-xs"
+        className="sim-select rounded-md border px-2 py-0.5 text-xs"
         style={{ background: 'transparent', color: 'inherit', borderColor: 'currentColor' }}
         value={mode}
         onChange={(event) => controller.setMode(event.target.value as FaultMode)}
@@ -61,12 +65,12 @@ export function AppShell() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
-  const [tourSignal, setTourSignal] = useState(0);
+  const connection = useConnection();
   const chord = useRef<{ key: string; at: number } | null>(null);
 
   const closePalette = useCallback(() => setPaletteOpen(false), []);
   const showShortcuts = useCallback(() => setHelpOpen(true), []);
-  const startTour = useCallback(() => setTourSignal((value) => value + 1), []);
+  const startTour = useCallback(() => tour.start(), []);
   const section = pathname.split('/').pop() ?? '';
 
   useEffect(() => {
@@ -88,7 +92,7 @@ export function AppShell() {
         return;
       }
       if (event.ctrlKey || event.metaKey || event.altKey || isTypingTarget(event.target)) return;
-      if (document.querySelector('[role="dialog"]')) return;
+      if (document.querySelector('[role="dialog"]') || document.querySelector('[data-editing="true"]')) return;
       const key = event.key.toLowerCase();
       const pending = chord.current;
       chord.current = null;
@@ -184,6 +188,10 @@ export function AppShell() {
             </span>
             <kbd className="kbd">Ctrl K</kbd>
           </button>
+          <button type="button" className="btn btn-sm justify-start text-muted" onClick={connection.openDialog}>
+            <Plug aria-hidden="true" size={15} />
+            {connection.mode === 'http' ? 'API conectada' : 'Conectar à API'}
+          </button>
           <div className="flex gap-2">
             <button type="button" className="btn btn-sm flex-1" onClick={() => setHelpOpen(true)}>
               <Keyboard aria-hidden="true" size={15} />
@@ -199,7 +207,7 @@ export function AppShell() {
 
       <div className="lg:pl-64">
         <header className="glass sticky top-0 z-20 flex items-center justify-between gap-2 border-b border-line px-4 py-2 lg:hidden">
-          <Link to="/" className="flex items-center gap-2 no-underline" aria-label="InsightHub, início">
+          <Link to="/" className="flex min-h-11 items-center gap-2 no-underline" aria-label="InsightHub, início">
             <LogoMark size={30} />
             <span className="display text-lg text-fg">InsightHub</span>
           </Link>
@@ -286,6 +294,12 @@ export function AppShell() {
               </button>
             </li>
             <li>
+              <button type="button" className="btn btn-ghost w-full justify-start gap-3" onClick={() => { setMoreOpen(false); connection.openDialog(); }}>
+                <Plug aria-hidden="true" size={20} />
+                {connection.mode === 'http' ? 'API conectada' : 'Conectar à API'}
+              </button>
+            </li>
+            <li>
               <button type="button" className="btn btn-ghost w-full justify-start gap-3" onClick={() => { setMoreOpen(false); setPaletteOpen(true); }}>
                 <Command aria-hidden="true" size={20} />
                 Paleta de comandos
@@ -295,11 +309,13 @@ export function AppShell() {
         </Modal>
       ) : null}
 
-      {paletteOpen ? (
-        <CommandPalette surveyId={surveyId} onClose={closePalette} onShowShortcuts={showShortcuts} onStartTour={startTour} />
-      ) : null}
-      {helpOpen ? <ShortcutsModal onClose={() => setHelpOpen(false)} /> : null}
-      <Tour openSignal={tourSignal} />
+      <Suspense fallback={null}>
+        {paletteOpen ? (
+          <CommandPalette surveyId={surveyId} onClose={closePalette} onShowShortcuts={showShortcuts} onStartTour={startTour} />
+        ) : null}
+        {helpOpen ? <ShortcutsModal onClose={() => setHelpOpen(false)} /> : null}
+      </Suspense>
+      <Tour />
     </>
   );
 }

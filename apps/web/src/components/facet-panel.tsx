@@ -11,7 +11,9 @@ import {
   type Role,
   type Theme,
 } from '@insighthub/core';
+import { isInvertedRange } from '@insighthub/core';
 import { useQuery } from '@tanstack/react-query';
+import { useId } from 'react';
 import { formatNumber } from '../lib/format';
 import { NPS_LABELS, PLAN_LABELS, REGION_LABELS, ROLE_LABELS } from '../lib/labels';
 import { filtersOf, type SurveySearch } from '../lib/search';
@@ -83,6 +85,10 @@ export function FacetPanel({ className = '' }: { className?: string }) {
     placeholderData: (previous) => previous,
   });
   const apply = (change: Partial<SurveySearch>) => patch({ ...change, page: undefined });
+  // Unique ids: the panel can be on screen twice (facet column and filter dialog).
+  const uid = useId();
+  const fromId = `${uid}-from`;
+  const toId = `${uid}-to`;
 
   return (
     <div className={`flex flex-col gap-5 ${className}`}>
@@ -130,11 +136,11 @@ export function FacetPanel({ className = '' }: { className?: string }) {
         <legend className="eyebrow mb-1.5 p-0">Período de envio</legend>
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label htmlFor="period-from" className="label">
+            <label htmlFor={fromId} className="label">
               De
             </label>
             <input
-              id="period-from"
+              id={fromId}
               type="date"
               className="field w-full"
               value={search.from ?? ''}
@@ -143,11 +149,11 @@ export function FacetPanel({ className = '' }: { className?: string }) {
             />
           </div>
           <div>
-            <label htmlFor="period-to" className="label">
+            <label htmlFor={toId} className="label">
               Até
             </label>
             <input
-              id="period-to"
+              id={toId}
               type="date"
               className="field w-full"
               value={search.to ?? ''}
@@ -156,6 +162,11 @@ export function FacetPanel({ className = '' }: { className?: string }) {
             />
           </div>
         </div>
+        {isInvertedRange(search) ? (
+          <p role="alert" className="m-0 mt-2 text-sm" style={{ color: 'var(--detractor)' }}>
+            A data inicial é depois da final, então o período está sendo ignorado. Ajuste uma das datas.
+          </p>
+        ) : null}
       </fieldset>
     </div>
   );

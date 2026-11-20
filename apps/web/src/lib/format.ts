@@ -17,6 +17,10 @@ export const formatDate = (iso: string): string => dateFormat.format(new Date(is
 export const formatShortDate = (iso: string): string => shortDateFormat.format(new Date(iso));
 /** "12 ago" style label. */
 export const formatDayMonth = (iso: string): string => dayMonthFormat.format(new Date(iso)).replace('.', '');
+const dayShortFormat = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+/** "28 set": the short axis label (no "de", no dot), so it never gets cut. */
+export const formatDayMonthShort = (iso: string): string =>
+  dayShortFormat.formatToParts(new Date(iso)).filter((part) => part.type === 'day' || part.type === 'month').map((part) => part.value.replace('.', '')).join(' ');
 export const formatDateTime = (iso: string): string => dateTimeFormat.format(new Date(iso));
 
 /** NPS with an explicit sign so +12 and -12 never rely on color alone. */

@@ -4,7 +4,7 @@ import { render } from '@testing-library/react';
 import { ClientProvider } from '../components/app-context';
 import { MotionRoot } from '../components/motion';
 import { ToastProvider } from '../components/toast';
-import { createDemoClient, type DemoClientOptions } from '../data';
+import { createDemoClient, type DemoClientOptions } from '../data/demo-client';
 import { createAppRouter, createMemoryHistory } from '../router';
 
 /** Renders the whole app on a memory history with an instant demo client. */

@@ -1,12 +1,14 @@
 import { THEME_KEYS, THEME_LABELS, type Theme } from '@insighthub/core';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { Command, CornerDownLeft, FileText, Keyboard, Moon, Compass, Search, Shapes, type LucideIcon } from 'lucide-react';
+import { Command, CornerDownLeft, FileText, Keyboard, Moon, Compass, Plug, Search, Shapes, type LucideIcon } from 'lucide-react';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useModalLayer } from './modal-layer';
 import { clearFiltersPatch } from './filter-bar';
 import { useClient } from './app-context';
+import { useConnection } from './connection';
 import { NAV_ITEMS } from './nav-items';
-import { m } from './motion';
 import { applyNextTheme } from './theme-toggle';
 import { personOf } from '../lib/people';
 
@@ -36,10 +38,12 @@ function normalize(text: string): string {
 export function CommandPalette({ surveyId, onClose, onShowShortcuts, onStartTour }: PaletteProps) {
   const client = useClient();
   const navigate = useNavigate();
+  const connection = useConnection();
   const [text, setText] = useState('');
   const [cursor, setCursor] = useState(0);
   const listId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
+  useModalLayer(onClose);
   const opener = useRef<HTMLElement | null>(
     document.activeElement instanceof HTMLElement ? document.activeElement : null,
   );
@@ -63,7 +67,7 @@ export function CommandPalette({ surveyId, onClose, onShowShortcuts, onStartTour
     const target = opener.current;
     return () => {
       document.body.style.overflow = previousOverflow;
-      target?.focus();
+      setTimeout(() => target?.focus(), 0);
     };
   }, []);
 
@@ -103,10 +107,11 @@ export function CommandPalette({ surveyId, onClose, onShowShortcuts, onStartTour
       { id: 'act-theme', group: 'Ações', label: 'Alternar tema claro e escuro', hint: 'T', Icon: Moon, run: () => { applyNextTheme(); onClose(); } },
       { id: 'act-clear', group: 'Ações', label: 'Limpar todos os filtros', Icon: Search, run: () => { onClose(); void navigate({ to: '.', search: ((prev: object) => ({ ...prev, ...clearFiltersPatch() })) as never }); } },
       { id: 'act-shortcuts', group: 'Ações', label: 'Ver atalhos de teclado', hint: '?', Icon: Keyboard, run: () => { onClose(); onShowShortcuts(); } },
+      { id: 'act-connect', group: 'Ações', label: connection.mode === 'http' ? 'Gerenciar a conexão com a API' : 'Conectar à API', Icon: Plug, run: () => { onClose(); connection.openDialog(); } },
       { id: 'act-tour', group: 'Ações', label: 'Rever o tour de 3 passos', Icon: Compass, run: () => { onClose(); onStartTour(); } },
     );
     return list;
-  }, [navigate, onClose, onShowShortcuts, onStartTour, surveyId, surveys.data]);
+  }, [connection, navigate, onClose, onShowShortcuts, onStartTour, surveyId, surveys.data]);
 
   const visible = useMemo<Item[]>(() => {
     const needle = normalize(term);
@@ -133,10 +138,7 @@ export function CommandPalette({ surveyId, onClose, onShowShortcuts, onStartTour
   const active = visible[safeCursor];
 
   function onKeyDown(event: React.KeyboardEvent) {
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      onClose();
-    } else if (event.key === 'ArrowDown') {
+    if (event.key === 'ArrowDown') {
       event.preventDefault();
       setCursor((safeCursor + 1) % Math.max(1, visible.length));
     } else if (event.key === 'ArrowUp') {
@@ -151,7 +153,7 @@ export function CommandPalette({ surveyId, onClose, onShowShortcuts, onStartTour
   }
 
   let lastGroup = '';
-  return (
+  return createPortal(
     <div
       role="presentation"
       className="fixed inset-0 z-[70] flex items-start justify-center p-3 pt-[10vh]"
@@ -160,14 +162,13 @@ export function CommandPalette({ surveyId, onClose, onShowShortcuts, onStartTour
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <m.div
+      {/* The dialog owns the arrow/Enter keys of its combobox, so the handler lives on it. */}
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
+      <div
         role="dialog"
         aria-modal="true"
         aria-label="Paleta de comandos"
-        initial={{ opacity: 0, y: -10, scale: 0.98 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.16 }}
-        className="flex max-h-[70dvh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-[var(--shadow-pop)]"
+        className="modal-enter flex max-h-[70dvh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-[var(--shadow-pop)]"
         onKeyDown={onKeyDown}
       >
         <div className="flex items-center gap-3 border-b border-line px-4">
@@ -221,7 +222,8 @@ export function CommandPalette({ surveyId, onClose, onShowShortcuts, onStartTour
             );
           })}
         </ul>
-      </m.div>
-    </div>
+      </div>
+    </div>,
+    document.body,
   );
 }

@@ -8,7 +8,22 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   base: './',
   plugins: [react(), tailwindcss()],
-  build: { outDir: 'dist', sourcemap: false },
+  build: {
+    outDir: 'dist',
+    sourcemap: false,
+    rollupOptions: {
+      output: {
+        // Named vendor chunks: cacheable across releases and readable in the bundle report.
+        manualChunks(id: string) {
+          if (!id.includes('node_modules')) return undefined;
+          if (/node_modules[/](react|react-dom|scheduler)[/]/.test(id)) return 'vendor-react';
+          if (id.includes('@tanstack')) return 'vendor-tanstack';
+          if (id.includes('zod')) return 'vendor-zod';
+          return undefined;
+        },
+      },
+    },
+  },
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],

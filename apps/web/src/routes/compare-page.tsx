@@ -137,6 +137,10 @@ export function ComparePage() {
                 </section>
               ) : null}
 
+              {data.truncated ? (
+                <PartialNotice message="A API limita a análise a 5.000 respostas; os números abaixo cobrem só uma parte da pesquisa." />
+              ) : null}
+
               {small.length > 0 ? (
                 <div
                   role="note"
@@ -155,12 +159,13 @@ export function ComparePage() {
 
               <ChartCard
                 title={`NPS por ${DIMENSION_LABELS[dimension].toLowerCase()}, comparado ao geral`}
-                description={`Geral: ${formatNps(data.overall.nps)} em ${formatNumber(data.overall.total)} respostas. Barras para a direita estão acima da média.`}
+                description={`Geral: ${formatNps(data.overall.nps)} em ${formatNumber(data.overall.total)} respostas. Barras para a direita estão acima da média. Segmentos com menos de ${LOW_SAMPLE_THRESHOLD} respostas recebem aviso de amostra pequena.`}
                 chart={<DivergingChart stats={stats} dimension={dimension} overallNps={data.overall.nps} />}
                 table={<SegmentTable stats={stats} dimension={dimension} />}
               />
 
               <section aria-label="Segmentos lado a lado" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <h2 className="sr-only">Segmentos lado a lado</h2>
                 {stats.map((stat, index) => (
                   <SegmentCard key={stat.segment} stat={stat} dimension={dimension} index={index} />
                 ))}

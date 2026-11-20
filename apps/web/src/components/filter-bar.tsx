@@ -67,19 +67,35 @@ export function FilterBar({ facetsVisible = false }: FilterBarProps) {
   const search = useSurveySearch();
   const patch = usePatchSearch();
   const [open, setOpen] = useState(false);
-  const [resetCount, setResetCount] = useState(0);
-  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const inputRef = useRef<HTMLInputElement>(null);
   const chips = activeChips(search);
 
-  useEffect(() => () => clearTimeout(timer.current), []);
+  // The box is controlled and follows the URL: a removed chip, "Limpar filtros" or the browser's back
+  // button all update what is typed, and what is typed is never lost to the debounce.
+  const [text, setText] = useState(search.q ?? '');
+  const [syncedQ, setSyncedQ] = useState(search.q);
+  if (search.q !== syncedQ) {
+    setSyncedQ(search.q);
+    setText(search.q ?? '');
+  }
 
   function apply(change: Partial<SurveySearch>) {
     patch({ ...change, page: undefined });
   }
 
+  const latest = useRef({ apply, current: search.q });
+  useEffect(() => {
+    latest.current = { apply, current: search.q };
+  });
+  useEffect(() => {
+    const wanted = text.trim() || undefined;
+    if (wanted === latest.current.current) return;
+    const timer = setTimeout(() => latest.current.apply({ q: wanted }), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [text]);
+
   function clearAll() {
-    clearTimeout(timer.current);
-    setResetCount((count) => count + 1);
+    setText('');
     patch(RESET);
   }
 
@@ -96,25 +112,36 @@ export function FilterBar({ facetsVisible = false }: FilterBarProps) {
             className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted"
           />
           <input
-            key={resetCount}
+            ref={inputRef}
             id="busca-global"
             type="search"
-            className="field w-full pl-10"
+            className="field w-full pl-10 pr-12"
             maxLength={MAX_SEARCH_LENGTH}
-            defaultValue={search.q ?? ''}
-            placeholder="Buscar nos comentários: suporte, lento, preço"
-            onChange={(event) => {
-              clearTimeout(timer.current);
-              const value = event.target.value;
-              timer.current = setTimeout(() => apply({ q: value.trim() || undefined }), SEARCH_DEBOUNCE_MS);
-            }}
+            value={text}
+            placeholder="Buscar nos comentários"
+            onChange={(event) => setText(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                clearTimeout(timer.current);
-                apply({ q: event.currentTarget.value.trim() || undefined });
-              }
+              if (event.key === 'Enter') apply({ q: text.trim() || undefined });
+            }}
+            onBlur={() => {
+              const wanted = text.trim() || undefined;
+              if (wanted !== search.q) apply({ q: wanted });
             }}
           />
+          {text ? (
+            <button
+              type="button"
+              className="btn btn-icon btn-ghost absolute right-1 top-1/2 -translate-y-1/2"
+              aria-label="Limpar a busca"
+              onClick={() => {
+                setText('');
+                apply({ q: undefined });
+                inputRef.current?.focus();
+              }}
+            >
+              <X aria-hidden="true" size={16} />
+            </button>
+          ) : null}
         </div>
         <button
           type="button"
@@ -137,7 +164,6 @@ export function FilterBar({ facetsVisible = false }: FilterBarProps) {
                   className="badge cursor-pointer bg-primary-soft hover:border-primary"
                   aria-label={`Remover filtro ${chip.text}`}
                   onClick={() => {
-                    if (chip.key === 'q') setResetCount((count) => count + 1);
                     apply(chip.remove);
                   }}
                 >
@@ -156,18 +182,24 @@ export function FilterBar({ facetsVisible = false }: FilterBarProps) {
       ) : null}
 
       {open ? (
-        <Modal title="Filtros" onClose={() => setOpen(false)} variant="sheet">
-          <FacetPanel />
-          <div className="mt-5 flex gap-2">
-            <button type="button" className="btn btn-primary flex-1" onClick={() => setOpen(false)}>
-              Ver resultados
-            </button>
-            {hasActiveFilters(search) ? (
-              <button type="button" className="btn" onClick={clearAll}>
-                Limpar
+        <Modal
+          title="Filtros"
+          onClose={() => setOpen(false)}
+          variant="sheet"
+          footer={
+            <div className="flex gap-2">
+              <button type="button" className="btn btn-primary flex-1" onClick={() => setOpen(false)}>
+                Ver resultados
               </button>
-            ) : null}
-          </div>
+              {hasActiveFilters(search) ? (
+                <button type="button" className="btn" onClick={clearAll}>
+                  Limpar
+                </button>
+              ) : null}
+            </div>
+          }
+        >
+          <FacetPanel />
         </Modal>
       ) : null}
     </section>

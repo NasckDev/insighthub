@@ -47,7 +47,9 @@ export function buildTimeline(responses: readonly SurveyResponse[]): TimelinePoi
   const weeks = new Map<string, number[]>();
   for (const response of responses) {
     const key = weekStartOf(response.submittedAt);
-    weeks.set(key, [...(weeks.get(key) ?? []), response.npsScore]);
+    const scores = weeks.get(key);
+    if (scores) scores.push(response.npsScore);
+    else weeks.set(key, [response.npsScore]);
   }
   return [...weeks.entries()]
     .sort(([a], [b]) => a.localeCompare(b))

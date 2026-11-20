@@ -6,7 +6,7 @@ import {
   type SynthesisFocus,
 } from '@insighthub/core';
 import { useCallback, useEffect, useReducer, useRef } from 'react';
-import type { DataClient } from '../data';
+import { DataError, type DataClient } from '../data';
 
 export type SynthesisStatus = 'idle' | 'streaming' | 'done' | 'cancelled' | 'error';
 
@@ -16,14 +16,22 @@ export interface SynthesisState {
   citations: Citation[];
   provider?: string;
   sourceCount?: number;
+  /** How many responses matched the filters (can be more than `sourceCount`, the ones actually read). */
+  totalCount?: number;
+  truncated?: boolean;
   error?: string;
+  /** The API answered 401/403: the way out is to give it a token, not to try again. */
+  needsToken?: boolean;
 }
 
 type Action =
   | { type: 'start' }
   | { type: 'cancel' }
-  | { type: 'fail'; message: string }
+  | { type: 'fail'; message: string; needsToken?: boolean }
+  | { type: 'end' }
   | { type: 'event'; event: SynthesisEvent };
+
+export const INTERRUPTED_MESSAGE = 'A conexão foi interrompida antes do fim da síntese.';
 
 const INITIAL: SynthesisState = { status: 'idle', text: '', citations: [] };
 
@@ -34,11 +42,20 @@ export function synthesisReducer(state: SynthesisState, action: Action): Synthes
     case 'cancel':
       return state.status === 'streaming' ? { ...state, status: 'cancelled' } : state;
     case 'fail':
-      return { ...state, status: 'error', error: action.message };
+      return { ...state, status: 'error', error: action.message, needsToken: action.needsToken };
+    case 'end':
+      // A stream that closes without `done` or `error` is a dropped connection, not a finished answer.
+      return state.status === 'streaming' ? { ...state, status: 'error', error: INTERRUPTED_MESSAGE } : state;
     case 'event': {
       const { event } = action;
       if (event.type === 'meta')
-        return { ...state, provider: event.provider, sourceCount: event.sourceCount };
+        return {
+          ...state,
+          provider: event.provider,
+          sourceCount: event.sourceCount,
+          totalCount: event.totalCount,
+          truncated: event.truncated,
+        };
       if (event.type === 'delta') return { ...state, text: state.text + event.text };
       if (event.type === 'citation') return { ...state, citations: [...state.citations, event.citation] };
       if (event.type === 'done') return { ...state, status: 'done' };
@@ -76,9 +93,14 @@ export function useSynthesis(
         if (current.signal.aborted) return;
         dispatch({ type: 'event', event });
       }
+      if (!current.signal.aborted) dispatch({ type: 'end' });
     } catch (error: unknown) {
       if (isAbortError(error) || current.signal.aborted) return;
-      dispatch({ type: 'fail', message: messageOf(error) });
+      dispatch({
+        type: 'fail',
+        message: messageOf(error),
+        needsToken: error instanceof DataError && error.code === 'AUTH',
+      });
     }
   }, [client, surveyId, filters, focus]);
 

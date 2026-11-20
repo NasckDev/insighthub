@@ -9,6 +9,7 @@ import { NpsGauge } from '../components/charts/nps-gauge';
 import { TimelineChart, TimelineTable } from '../components/charts/timeline-chart';
 import { SENTIMENT_STYLE } from '../components/charts/treemap-chart';
 import { CountUp, Reveal } from '../components/motion';
+import { TourChip } from '../components/tour';
 import { Avatar, ThemeChips } from '../components/response-bits';
 import { EmptyState, ErrorState, KpiSkeleton, LoadingBlock, QueryView } from '../components/states';
 import { formatNps, formatNumber, formatPercent } from '../lib/format';
@@ -78,6 +79,7 @@ export function OverviewPage() {
 
   return (
     <div className="flex flex-col gap-5">
+      <TourChip />
       <QueryView
         query={overview}
         loading={
@@ -171,7 +173,7 @@ function TimelineCard({ timelineQuery }: { timelineQuery: UseQueryResult<Timelin
   if (timelineQuery.isError && timelineQuery.data === undefined) {
     return (
       <div className="card flex flex-col gap-2">
-        <h3 className="display m-0 text-xl">Evolução do NPS</h3>
+        <h2 className="display m-0 text-xl">Evolução do NPS</h2>
         <p role="status" className="m-0 text-sm text-muted">
           Resultado parcial: os indicadores ao lado carregaram, mas esta série não.
         </p>
@@ -207,7 +209,7 @@ function ThemesCard({ analysis }: { analysis: UseQueryResult<AnalysisData> }) {
     <section className="card flex h-full flex-col gap-4" aria-label="Temas principais">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="display m-0 text-xl">Do que as pessoas falam</h3>
+          <h2 className="display m-0 text-xl">Do que as pessoas falam</h2>
           <p className="m-0 mt-0.5 text-sm text-muted">Temas mais citados e o sentimento de quem os cita.</p>
         </div>
         <Link
@@ -232,7 +234,7 @@ function ThemesCard({ analysis }: { analysis: UseQueryResult<AnalysisData> }) {
                   to="/s/$surveyId/temas"
                   params={{ surveyId }}
                   search={(previous) => ({ ...previous, t: theme.theme })}
-                  className="grid grid-cols-[110px_1fr_auto] items-center gap-3 rounded-lg text-sm text-fg no-underline hover:bg-surface-2 sm:grid-cols-[150px_1fr_auto]"
+                  className="tap grid grid-cols-[110px_1fr_auto] items-center gap-3 rounded-lg text-sm text-fg no-underline hover:bg-surface-2 sm:grid-cols-[150px_1fr_auto]"
                 >
                   <span className="font-semibold">{theme.label}</span>
                   <span className="h-2.5 overflow-hidden rounded-full bg-surface-2">

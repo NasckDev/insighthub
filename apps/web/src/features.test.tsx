@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { getBoardStore } from './lib/board-store';
 import { renderApp } from './test/render-app';
 
@@ -10,6 +10,11 @@ type AppRouter = ReturnType<typeof renderApp>['router'];
 function searchOf(router: AppRouter) {
   return router.state.matches[router.state.matches.length - 1]?.search ?? {};
 }
+
+// Warm the lazily loaded chunks once, so a slow first transform never eats a test's time budget.
+beforeAll(async () => {
+  await Promise.all([import('./components/command-palette'), import('./components/shortcuts-modal')]);
+}, 120_000);
 
 beforeEach(() => {
   const store = getBoardStore();

@@ -19,9 +19,9 @@ export function ChartCard({ title, description, chart, table, legend, className 
     <section aria-labelledby={headingId} className={`card flex min-w-0 flex-col gap-3 ${className}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 id={headingId} className="display m-0 text-xl">
+          <h2 id={headingId} className="display m-0 text-xl">
             {title}
-          </h3>
+          </h2>
           <p className="m-0 mt-0.5 text-sm text-muted">{description}</p>
         </div>
         <div className="seg" role="group" aria-label={`Formato de ${title}`}>

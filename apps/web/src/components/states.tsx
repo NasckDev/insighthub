@@ -1,6 +1,8 @@
 import type { UseQueryResult } from '@tanstack/react-query';
-import { RotateCw } from 'lucide-react';
+import { KeyRound, RotateCw } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { DataError } from '../data';
+import { useConnection } from './connection';
 import { Illustration, type IllustrationName } from './illustrations';
 
 export function LoadingBlock({ label = 'Carregando', height = 120 }: { label?: string; height?: number }) {
@@ -52,6 +54,8 @@ interface ErrorStateProps {
 }
 
 export function ErrorState({ error, onRetry, title = 'Não foi possível carregar' }: ErrorStateProps) {
+  const connection = useConnection();
+  const needsToken = error instanceof DataError && error.code === 'AUTH';
   return (
     <div
       role="alert"
@@ -63,8 +67,14 @@ export function ErrorState({ error, onRetry, title = 'Não foi possível carrega
       </div>
       <div className="flex flex-col gap-2">
         <p className="display m-0 text-lg">{title}</p>
-        <p className="m-0 text-sm">{messageOf(error)} Tente de novo; se persistir, volte em instantes.</p>
-        <div>
+        <p className="m-0 text-sm">{messageOf(error)}{needsToken ? '' : ' Tente de novo; se persistir, volte em instantes.'}</p>
+        <div className="flex flex-wrap gap-2">
+          {needsToken ? (
+            <button type="button" className="btn btn-sm btn-primary" onClick={connection.openDialog}>
+              <KeyRound aria-hidden="true" size={15} />
+              Informar token
+            </button>
+          ) : null}
           <button type="button" className="btn btn-sm" onClick={onRetry}>
             <RotateCw aria-hidden="true" size={15} />
             Tentar de novo
@@ -78,10 +88,12 @@ export function ErrorState({ error, onRetry, title = 'Não foi possível carrega
 interface PartialNoticeProps {
   message: string;
   onRetry?: () => void;
+  /** Extra action, shown before the retry button. */
+  action?: ReactNode;
 }
 
 /** Shown when data arrived incomplete: the page keeps working with what it has. */
-export function PartialNotice({ message, onRetry }: PartialNoticeProps) {
+export function PartialNotice({ message, onRetry, action }: PartialNoticeProps) {
   return (
     <div
       role="status"
@@ -90,6 +102,7 @@ export function PartialNotice({ message, onRetry }: PartialNoticeProps) {
     >
       <span className="font-semibold">Resultado parcial.</span>
       <span>{message}</span>
+      {action}
       {onRetry ? (
         <button type="button" className="btn btn-sm" onClick={onRetry}>
           Tentar de novo

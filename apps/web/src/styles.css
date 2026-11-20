@@ -624,3 +624,71 @@ main:focus {
     font-size: 13.5px;
   }
 }
+
+/* The browser's own blue "x" in search fields is replaced by our clear button. */
+input[type='search']::-webkit-search-cancel-button,
+input[type='search']::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
+}
+
+/* Touch: every control is at least 44 x 44 px. Inline citation chips keep their line height and get
+   an invisible extended hit area instead. */
+@media (pointer: coarse) {
+  .btn,
+  .btn-sm,
+  .field,
+  .seg > button,
+  button.badge,
+  select.sim-select,
+  .tap {
+    min-height: 44px;
+  }
+  .btn-icon,
+  .btn-sm.btn-icon {
+    min-width: 44px;
+    width: 44px;
+  }
+  button.badge {
+    display: inline-flex;
+    align-items: center;
+  }
+  select.sim-select {
+    padding-block: 8px;
+  }
+  .cite {
+    position: relative;
+  }
+  .cite::after {
+    content: '';
+    position: absolute;
+    inset: -14px -6px;
+  }
+}
+
+/* Dialog entry is plain CSS (not JS-driven), so it starts at once, is skipped by prefers-reduced-motion
+   and never leaves a dialog parked in its "from" position while a script loads. */
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+}
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+}
+.modal-enter {
+  animation: modal-in 0.2s ease-out both;
+}
+.sheet-enter {
+  animation: sheet-in 0.2s ease-out both;
+}
+@media (max-width: 639px) {
+  .sheet-enter {
+    animation-name: modal-in;
+  }
+}

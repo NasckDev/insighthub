@@ -1,17 +1,19 @@
-import type {
-  Facets,
-  Highlight,
-  NpsBreakdown,
-  Page,
-  ResponseFilters,
-  SegmentDimension,
-  SegmentStat,
-  Survey,
-  SurveyResponse,
-  SurveySummary,
-  SynthesisEvent,
-  SynthesisFocus,
-  ThemeStat,
+import {
+  RESPONSE_SORTS,
+  type Facets,
+  type Highlight,
+  type NpsBreakdown,
+  type Page,
+  type ResponseFilters,
+  type ResponseSort,
+  type SegmentDimension,
+  type SegmentStat,
+  type Survey,
+  type SurveyResponse,
+  type SurveySummary,
+  type SynthesisEvent,
+  type SynthesisFocus,
+  type ThemeStat,
 } from '@insighthub/core';
 import type { DistributionBin, TimelinePoint } from '../lib/overview';
 
@@ -39,15 +41,15 @@ export interface CompareData {
   overall: NpsBreakdown;
   segments: SegmentStat[];
   partial?: PartialInfo;
+  /** The API cut the data at its row limit, so the numbers cover a prefix of the survey. */
+  truncated?: boolean;
 }
 
-export const RESPONSE_SORTS = ['recent', 'oldest', 'score-desc', 'score-asc'] as const;
-export type ResponseSort = (typeof RESPONSE_SORTS)[number];
+export { RESPONSE_SORTS, type ResponseSort };
 
 export interface ResponsePagination {
   page: number;
   pageSize: number;
-  /** Honored by the demo adapter only; the API has no sort parameter. */
   sort?: ResponseSort;
 }
 
@@ -89,7 +91,7 @@ export interface DataClient {
 export class DataError extends Error {
   constructor(
     message: string,
-    readonly code: 'NOT_FOUND' | 'NETWORK' | 'SIMULATED' | 'SERVER',
+    readonly code: 'NOT_FOUND' | 'NETWORK' | 'SIMULATED' | 'SERVER' | 'AUTH' | 'CLIENT',
   ) {
     super(message);
     this.name = 'DataError';

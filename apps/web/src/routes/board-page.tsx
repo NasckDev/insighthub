@@ -1,20 +1,21 @@
 import {
   decodeShare,
   encodeShare,
+  isShareTooLarge,
   insightsToCsv,
   insightsToMarkdown,
   type Insight,
 } from '@insighthub/core';
 import { Link } from '@tanstack/react-router';
 import { Download, FileText, Link2, Pencil, Sparkles, Trash2 } from 'lucide-react';
-import { useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Illustration } from '../components/illustrations';
 import { Reveal } from '../components/motion';
 import { SynthesisText } from '../components/synthesis-text';
 import { useToast } from '../components/toast';
 import { getBoardStore, useBoard } from '../lib/board-store';
 import { downloadText } from '../lib/download';
-import { formatDateTime } from '../lib/format';
+import { formatDateTime, plural } from '../lib/format';
 import { usePatchSearch, useSurveyId, useSurveySearch } from '../lib/use-survey-search';
 
 function InsightCard({
@@ -35,8 +36,18 @@ function InsightCard({
   const [note, setNote] = useState(insight.note);
   const titleId = useId();
   const noteId = useId();
+  const titleRef = useRef<HTMLInputElement>(null);
+  const editRef = useRef<HTMLButtonElement>(null);
+  const wasEditing = useRef(false);
   const verified = useMemo(() => new Set(insight.citations.map((c) => c.responseId)), [insight.citations]);
   const invalid = title.trim().length === 0;
+
+  // Entering edit mode moves focus to the title; leaving it hands focus back to the Edit button.
+  useEffect(() => {
+    if (editing) titleRef.current?.focus();
+    else if (wasEditing.current) editRef.current?.focus();
+    wasEditing.current = editing;
+  }, [editing]);
 
   function remove() {
     const position = store.get().findIndex((item) => item.id === insight.id);
@@ -51,7 +62,7 @@ function InsightCard({
 
   return (
     <Reveal index={index}>
-      <article className="card flex flex-col gap-4" aria-label={insight.title}>
+      <article className="card flex flex-col gap-4" aria-label={insight.title} data-editing={editing ? 'true' : undefined}>
         {editing ? (
           <form
             className="flex flex-col gap-3"
@@ -67,7 +78,7 @@ function InsightCard({
               <label htmlFor={titleId} className="label">
                 Título
               </label>
-              <input id={titleId} className="field w-full" value={title} maxLength={120} aria-invalid={invalid} onChange={(e) => setTitle(e.target.value)} />
+              <input id={titleId} ref={titleRef} className="field w-full" value={title} maxLength={120} aria-invalid={invalid} onChange={(e) => setTitle(e.target.value)} />
               {invalid ? (
                 <p role="alert" className="m-0 mt-1 text-sm" style={{ color: 'var(--detractor)' }}>
                   O título não pode ficar vazio.
@@ -110,7 +121,7 @@ function InsightCard({
             </div>
             {readOnly ? null : (
               <div className="flex shrink-0 gap-1">
-                <button type="button" className="btn btn-sm btn-icon" aria-label={`Editar ${insight.title}`} onClick={() => setEditing(true)}>
+                <button type="button" ref={editRef} className="btn btn-sm btn-icon" aria-label={`Editar ${insight.title}`} onClick={() => setEditing(true)}>
                   <Pencil aria-hidden="true" size={15} />
                 </button>
                 <button type="button" className="btn btn-sm btn-icon btn-danger" aria-label={`Excluir ${insight.title}`} onClick={remove}>
@@ -145,7 +156,17 @@ export function BoardPage() {
 
   async function copyShareLink() {
     const base = window.location.href.split('#')[0];
-    const link = `${base}#/s/${surveyId}/quadro?share=${encodeShare(board)}`;
+    const token = encodeShare(board);
+    if (isShareTooLarge(token)) {
+      toast({
+        kind: 'error',
+        durationMs: 12000,
+        message: 'O quadro ficou grande demais para caber num link. Exporte em Markdown ou CSV para compartilhar.',
+        action: { label: 'Exportar Markdown', onClick: exportMarkdown },
+      });
+      return;
+    }
+    const link = `${base}#/s/${surveyId}/quadro?share=${token}`;
     try {
       await navigator.clipboard.writeText(link);
       toast({ message: 'Link do quadro copiado. Quem abrir poderá importar os insights.' });
@@ -157,10 +178,20 @@ export function BoardPage() {
   function importShared() {
     const added = getBoardStore().merge(shared);
     patch({ share: undefined });
-    toast({ message: added === 0 ? 'Todos esses insights já estavam no seu quadro.' : `${added} insights importados para o seu quadro.` });
+    toast({
+      message:
+        added === 0
+          ? 'Todos esses insights já estavam no seu quadro.'
+          : `${plural(added, 'insight importado', 'insights importados')} para o seu quadro.`,
+    });
   }
 
   const stamp = new Date().toISOString().slice(0, 10);
+
+  function exportMarkdown() {
+    downloadText(`insights-${stamp}.md`, insightsToMarkdown(getBoardStore().get()), 'text/markdown');
+    toast({ message: 'Markdown exportado.' });
+  }
 
   return (
     <div className="flex flex-col gap-5">
@@ -199,7 +230,15 @@ export function BoardPage() {
         </section>
       ) : null}
 
-      {board.length === 0 ? (
+      {shared.length > 0 ? (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2" aria-label="Prévia do quadro compartilhado" role="group">
+          {shared.map((insight, index) => (
+            <InsightCard key={`shared-${insight.id}`} insight={insight} index={index} readOnly onOpenCitation={openCitation} />
+          ))}
+        </div>
+      ) : null}
+
+      {board.length === 0 && shared.length === 0 ? (
         <section className="card flex flex-col items-center gap-2 py-12 text-center" aria-label="Quadro vazio">
           <Illustration name="board" />
           <h2 className="display m-0 mt-2 text-2xl">Seu quadro está vazio</h2>
@@ -213,7 +252,7 @@ export function BoardPage() {
             </Link>
           </div>
         </section>
-      ) : (
+      ) : board.length === 0 ? null : (
         <>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="m-0 text-sm text-muted" aria-live="polite">
@@ -223,10 +262,7 @@ export function BoardPage() {
               <button
                 type="button"
                 className="btn btn-sm"
-                onClick={() => {
-                  downloadText(`insights-${stamp}.md`, insightsToMarkdown(board), 'text/markdown');
-                  toast({ message: 'Markdown exportado.' });
-                }}
+                onClick={exportMarkdown}
               >
                 <FileText aria-hidden="true" size={15} />
                 Exportar Markdown

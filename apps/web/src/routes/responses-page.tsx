@@ -1,4 +1,4 @@
-import { DEFAULT_PAGE_SIZE, type SurveyResponse } from '@insighthub/core';
+import { DEFAULT_PAGE_SIZE, THEME_KEYS, THEME_LABELS, type SurveyResponse } from '@insighthub/core';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Fragment } from 'react';
@@ -37,7 +37,7 @@ function ResponseRow({
       <td>
         <button
           type="button"
-          className="flex items-center gap-2.5 border-0 bg-transparent p-0 text-left"
+          className="tap flex items-center gap-2.5 border-0 bg-transparent p-0 text-left"
           onClick={() => onOpen(item.id)}
         >
           <Avatar respondentId={item.respondentId} size={34} />
@@ -97,13 +97,28 @@ export function ResponsesPage() {
             <EmptyState
               illustration="search"
               title="Nenhuma resposta encontrada"
-              description="Nenhuma resposta corresponde aos filtros e à busca atuais. Tente outro termo ou remova um filtro."
+              description="Nenhuma resposta corresponde aos filtros e à busca atuais. Tente outro termo, remova um filtro ou comece por um tema."
               action={
-                hasActiveFilters(search) ? (
-                  <button type="button" className="btn" onClick={() => patch(clearFiltersPatch())}>
-                    Limpar filtros
-                  </button>
-                ) : undefined
+                <div className="flex flex-col items-center gap-3">
+                  <ul className="m-0 flex list-none flex-wrap justify-center gap-2 p-0" aria-label="Temas para explorar">
+                    {THEME_KEYS.map((theme) => (
+                      <li key={theme}>
+                        <button
+                          type="button"
+                          className="badge cursor-pointer bg-primary-soft hover:border-primary"
+                          onClick={() => patch({ ...clearFiltersPatch(), theme })}
+                        >
+                          Ver tema {THEME_LABELS[theme]}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                  {hasActiveFilters(search) ? (
+                    <button type="button" className="btn" onClick={() => patch(clearFiltersPatch())}>
+                      Limpar filtros
+                    </button>
+                  ) : null}
+                </div>
               }
             />
           );

@@ -1,6 +1,7 @@
 import { X } from 'lucide-react';
 import { useEffect, useId, useRef, type ReactNode } from 'react';
-import { m } from './motion';
+import { createPortal } from 'react-dom';
+import { useModalLayer } from './modal-layer';
 
 interface ModalProps {
   title: string;
@@ -11,6 +12,8 @@ interface ModalProps {
   /** Visually hides the title when the content already has its own heading. */
   hideTitle?: boolean;
   size?: 'sm' | 'md' | 'lg';
+  /** Pinned under the scrolling content, so the main action is never below the fold. */
+  footer?: ReactNode;
 }
 
 const FOCUSABLE =
@@ -18,15 +21,15 @@ const FOCUSABLE =
 
 const SIZES = { sm: 'sm:max-w-md', md: 'sm:max-w-xl', lg: 'sm:max-w-3xl' } as const;
 
-/** Accessible modal: focus moves in, Tab is trapped, Esc closes, focus returns to the opener. */
-export function Modal({ title, onClose, children, variant = 'dialog', hideTitle, size = 'md' }: ModalProps) {
+/**
+ * Accessible modal: rendered in a portal on <body> (so no ancestor with `backdrop-filter` or a
+ * transform can trap its `position: fixed`), focus moves in, Tab is trapped, Esc closes the topmost
+ * layer, and focus returns to the opener.
+ */
+export function Modal({ title, onClose, children, variant = 'dialog', hideTitle, size = 'md', footer }: ModalProps) {
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
-  const onCloseRef = useRef(onClose);
-
-  useEffect(() => {
-    onCloseRef.current = onClose;
-  });
+  useModalLayer(onClose);
 
   useEffect(() => {
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -37,11 +40,6 @@ export function Modal({ title, onClose, children, variant = 'dialog', hideTitle,
     document.body.style.overflow = 'hidden';
 
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        event.stopPropagation();
-        onCloseRef.current();
-        return;
-      }
       if (event.key !== 'Tab' || !panel) return;
       const items = [...panel.querySelectorAll<HTMLElement>(FOCUSABLE)];
       const first = items[0];
@@ -59,12 +57,13 @@ export function Modal({ title, onClose, children, variant = 'dialog', hideTitle,
     return () => {
       document.removeEventListener('keydown', onKeyDown);
       document.body.style.overflow = previousOverflow;
-      opener?.focus();
+      // The page behind becomes interactive again on the next tick, so focus is restored after that.
+      setTimeout(() => opener?.focus(), 0);
     };
   }, []);
 
   const isSheet = variant === 'sheet';
-  return (
+  return createPortal(
     <div
       role="presentation"
       className={`fixed inset-0 z-50 flex justify-center ${
@@ -75,16 +74,13 @@ export function Modal({ title, onClose, children, variant = 'dialog', hideTitle,
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <m.div
+      <div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        initial={isSheet ? { opacity: 0, x: 40 } : { opacity: 0, y: 16, scale: 0.98 }}
-        animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
-        transition={{ duration: 0.2, ease: 'easeOut' }}
-        className={`safe-bottom flex max-h-[92dvh] w-full flex-col overflow-hidden border border-line bg-surface shadow-[var(--shadow-pop)] outline-none ${
+        className={`${isSheet ? 'sheet-enter' : 'modal-enter'} safe-bottom flex max-h-[92dvh] w-full flex-col overflow-hidden border border-line bg-surface shadow-[var(--shadow-pop)] outline-none ${
           isSheet
             ? 'rounded-t-3xl sm:max-h-none sm:max-w-lg sm:rounded-none sm:rounded-l-3xl'
             : `rounded-t-3xl sm:rounded-3xl ${SIZES[size]}`
@@ -105,7 +101,9 @@ export function Modal({ title, onClose, children, variant = 'dialog', hideTitle,
           </button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</div>
-      </m.div>
-    </div>
+        {footer ? <div className="border-t border-line bg-surface px-5 py-3">{footer}</div> : null}
+      </div>
+    </div>,
+    document.body,
   );
 }

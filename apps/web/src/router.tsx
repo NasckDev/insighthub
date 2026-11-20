@@ -9,13 +9,24 @@ import {
   type RouterHistory,
 } from '@tanstack/react-router';
 import { AppShell } from './components/app-shell';
-import { EmptyState, LoadingBlock } from './components/states';
+import { EmptyState, ErrorState, LoadingBlock } from './components/states';
 import { parseSearchString, stringifySearchObject, validateSurveySearch } from './lib/search';
 import { SurveyLayout } from './routes/survey-layout';
 
 import { DEFAULT_SURVEY_ID } from './lib/constants';
 
 export { DEFAULT_SURVEY_ID };
+
+/** Anything a screen throws (bad address, broken data) lands here in plain language, never as a blank page. */
+function RouteError({ error, reset }: { error: unknown; reset: () => void }) {
+  return (
+    <ErrorState
+      title="Algo deu errado nesta tela"
+      error={new Error(error instanceof Error && error.message ? 'Não foi possível montar esta tela com os dados do endereço.' : 'Erro inesperado.')}
+      onRetry={reset}
+    />
+  );
+}
 
 function RoutePending() {
   return <LoadingBlock label="Carregando tela" height={240} />;
@@ -114,6 +125,7 @@ export function createAppRouter(history: RouterHistory = createHashHistory()) {
     defaultPreload: false,
     defaultPendingMs: 0,
     defaultPendingComponent: RoutePending,
+    defaultErrorComponent: RouteError,
   });
 }
 

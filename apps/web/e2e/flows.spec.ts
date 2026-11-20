@@ -1,8 +1,5 @@
-import AxeBuilder from '@axe-core/playwright';
-import { expect, test, type Page } from '@playwright/test';
-
-const SURVEY = '#/s/s-atlas-q3';
-const AXE_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
+import { expect, test } from '@playwright/test';
+import { expectNoViolations, SURVEY, setTheme, watchProblems } from './helpers';
 
 test.beforeEach(async ({ page }) => {
   // The optional tour is dismissed so it never covers the screen under test.
@@ -10,36 +7,6 @@ test.beforeEach(async ({ page }) => {
     localStorage.setItem('insighthub-tour', 'done');
   });
 });
-
-function watchProblems(page: Page): string[] {
-  const problems: string[] = [];
-  page.on('console', (message) => {
-    if (message.type() === 'error') problems.push(`console: ${message.text()}`);
-  });
-  page.on('pageerror', (error) => problems.push(`pageerror: ${error.message}`));
-  page.on('response', (response) => {
-    if (response.status() >= 400) problems.push(`http ${response.status()}: ${response.url()}`);
-  });
-  return problems;
-}
-
-async function expectNoViolations(page: Page, label: string, scope?: string) {
-  // Colors are only meaningful once every entry animation has finished.
-  await page.waitForFunction(() => document.getAnimations().every((animation) => animation.playState !== 'running'));
-  const builder = new AxeBuilder({ page }).withTags(AXE_TAGS);
-  // A modal dims the page behind it on purpose, so axe is pointed at the modal itself.
-  const results = await (scope ? builder.include(scope) : builder).analyze();
-  const summary = results.violations.map(
-    (violation) => `${violation.id} (${violation.impact}): ${violation.nodes.map((node) => node.target.join(' ')).join(' | ')}`,
-  );
-  expect(summary, `axe em ${label}`).toEqual([]);
-}
-
-async function setTheme(page: Page, theme: 'light' | 'dark') {
-  await page.evaluate((value) => {
-    document.documentElement.dataset.theme = value;
-  }, theme);
-}
 
 const ROUTES = [
   { path: 'visao-geral', ready: 'Net Promoter Score' },

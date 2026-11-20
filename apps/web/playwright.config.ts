@@ -1,6 +1,6 @@
 import { defineConfig } from '@playwright/test';
 
-const PORT = 4173;
+const PORT = Number(process.env.E2E_PORT ?? 4317);
 const BASE = `http://127.0.0.1:${PORT}/projetos/insighthub/`;
 
 /**
@@ -23,6 +23,7 @@ export default defineConfig({
   },
   webServer: {
     command: 'node scripts/serve-dist.mjs',
+    env: { PORT: String(PORT) },
     url: BASE,
     reuseExistingServer: !process.env.CI,
     timeout: 30_000,

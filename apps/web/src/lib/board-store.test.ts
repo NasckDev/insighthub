@@ -1,6 +1,6 @@
 import type { Insight } from '@insighthub/core';
 import { describe, expect, it } from 'vitest';
-import { createBoardStore } from './board-store';
+import { createBoardStore, parseStored, STORAGE_KEY, STORAGE_VERSION } from './board-store';
 
 function memoryStorage(initial: Record<string, string> = {}): Storage {
   const data = new Map(Object.entries(initial));
@@ -69,5 +69,40 @@ describe('board store', () => {
     const store = createBoardStore(null);
     store.add(sample('a'));
     expect(store.merge([sample('a'), sample('c')])).toBe(1);
+  });
+
+  it('writes a versioned payload and migrates the old bare array', () => {
+    const storage = memoryStorage();
+    createBoardStore(storage).add(sample('a'));
+    const saved = JSON.parse(storage.getItem(STORAGE_KEY) ?? '{}') as { version: number; items: Insight[] };
+    expect(saved.version).toBe(STORAGE_VERSION);
+    expect(saved.items.map((i) => i.id)).toEqual(['a']);
+    expect(parseStored(JSON.stringify([sample('legacy')])).map((i) => i.id)).toEqual(['legacy']);
+    expect(parseStored('{"version":9,"items":"nope"}')).toEqual([]);
+    expect(parseStored(null)).toEqual([]);
+  });
+
+  it('dedupes ids from storage and refuses invalid insights', () => {
+    const storage = memoryStorage({ [STORAGE_KEY]: JSON.stringify([sample('a'), sample('a'), sample('b')]) });
+    const store = createBoardStore(storage);
+    expect(store.get().map((i) => i.id)).toEqual(['a', 'b']);
+    expect(store.add({ ...sample('c'), title: '   ' })).toBe(false);
+    expect(store.add(sample('c'))).toBe(true);
+    expect(store.add({ ...sample('c'), title: 'Substituído' })).toBe(true);
+    expect(store.get().filter((i) => i.id === 'c')).toHaveLength(1);
+  });
+
+  it('follows changes made in another tab', () => {
+    const storage = memoryStorage();
+    const store = createBoardStore(storage, { listenToOtherTabs: true });
+    let calls = 0;
+    store.subscribe(() => (calls += 1));
+    storage.setItem(STORAGE_KEY, JSON.stringify({ version: 2, items: [sample('from-other-tab')] }));
+    window.dispatchEvent(new StorageEvent('storage', { key: STORAGE_KEY }));
+    expect(store.get().map((i) => i.id)).toEqual(['from-other-tab']);
+    expect(calls).toBe(1);
+    store.dispose();
+    window.dispatchEvent(new StorageEvent('storage', { key: STORAGE_KEY }));
+    expect(calls).toBe(1);
   });
 });

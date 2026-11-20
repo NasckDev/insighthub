@@ -1,11 +1,13 @@
-import { animate, domAnimation, LazyMotion, m, MotionConfig, useReducedMotion } from 'motion/react';
+import { LazyMotion, m, MotionConfig, useReducedMotion } from 'motion/react';
 import { useEffect, useState, type ReactNode } from 'react';
+
+const loadFeatures = () => import('./motion-features').then((module) => module.default);
 
 /** Every animation in the app goes through here, so `prefers-reduced-motion` turns them all off. */
 export function MotionRoot({ children }: { children: ReactNode }) {
   return (
     <MotionConfig reducedMotion="user">
-      <LazyMotion features={domAnimation} strict>
+      <LazyMotion features={loadFeatures} strict>
         {children}
       </LazyMotion>
     </MotionConfig>
@@ -56,19 +58,27 @@ interface CountUpProps {
   durationS?: number;
 }
 
-/** Number that counts up to `value`. The final value is always in the DOM for screen readers. */
+/**
+ * Number that counts up to `value`. Plain requestAnimationFrame instead of the animation library's
+ * `animate`, which keeps that whole engine out of the first-paint bundle. The final value is always
+ * in the DOM for screen readers.
+ */
 export function CountUp({ value, format = String, durationS = 0.9 }: CountUpProps) {
   const reduced = useReducedMotion();
   const [shown, setShown] = useState(0);
 
   useEffect(() => {
     if (reduced) return;
-    const controls = animate(0, value, {
-      duration: durationS,
-      ease: 'easeOut',
-      onUpdate: (latest) => setShown(Math.round(latest)),
-    });
-    return () => controls.stop();
+    const start = performance.now();
+    let frame = 0;
+    const tick = (now: number) => {
+      const progress = Math.min(1, (now - start) / (durationS * 1000));
+      const eased = 1 - (1 - progress) ** 3;
+      setShown(Math.round(value * eased));
+      if (progress < 1) frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
   }, [value, durationS, reduced]);
 
   return (

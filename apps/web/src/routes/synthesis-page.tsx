@@ -9,11 +9,12 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { Bookmark, Check, CircleStop, RotateCw, Sparkles } from 'lucide-react';
-import { useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useClient } from '../components/app-context';
 import { Illustration } from '../components/illustrations';
 import { Modal } from '../components/modal';
 import { m } from '../components/motion';
+import { useConnection } from '../components/connection';
 import { PartialNotice } from '../components/states';
 import { SynthesisText } from '../components/synthesis-text';
 import { useToast } from '../components/toast';
@@ -23,6 +24,23 @@ import { describeFilters } from '../lib/scope';
 import { filtersOf, hasActiveFilters, type SurveySearch } from '../lib/search';
 import { useSynthesis, type SynthesisState, type SynthesisStatus } from '../lib/use-synthesis';
 import { usePatchSearch, useSurveyId, useSurveySearch } from '../lib/use-survey-search';
+
+/** Plain-language provider name: no internal identifiers on screen. */
+export function providerLabel(provider: string | undefined): string {
+  if (!provider) return '';
+  if (provider === 'local-extractive') return 'gerada no seu navegador';
+  if (provider.startsWith('claude:')) return `gerada pelo modelo ${provider.slice('claude:'.length)}`;
+  return `gerada por ${provider}`;
+}
+
+/** "Baseada em 80 de 640 respostas": what the text read, versus everything that matched. */
+export function basisText(state: Pick<SynthesisState, 'sourceCount' | 'totalCount' | 'truncated' | 'provider'>): string {
+  if (state.sourceCount === undefined) return '';
+  const read = formatNumber(state.sourceCount);
+  const matched = state.totalCount !== undefined && state.totalCount !== state.sourceCount ? ` de ${formatNumber(state.totalCount)}` : '';
+  const cut = state.truncated ? ' O limite da API cortou a seleção.' : '';
+  return ` Baseada em ${read}${matched} respostas, ${providerLabel(state.provider)}.${cut}`;
+}
 
 const STATUS_TEXT: Record<SynthesisStatus, string> = {
   idle: 'Pronta para gerar.',
@@ -139,6 +157,9 @@ function SaveDialog({
   );
 }
 
+const MAX_BODY_LENGTH = 8000;
+const MAX_CITATIONS = 30;
+
 function buildInsight(
   state: SynthesisState,
   template: SynthesisTemplate,
@@ -151,8 +172,10 @@ function buildInsight(
     id: newInsightId(),
     title,
     note,
-    body: state.text,
-    citations: state.citations.map((citation) => ({ responseId: citation.responseId, quote: citation.quote.slice(0, 600) })),
+    body: state.text.slice(0, MAX_BODY_LENGTH),
+    citations: state.citations
+      .slice(0, MAX_CITATIONS)
+      .map((citation) => ({ responseId: citation.responseId, quote: citation.quote.slice(0, 600) })),
     surveyId: survey.id,
     surveyTitle: survey.title,
     question: template.label,
@@ -165,6 +188,8 @@ function SynthesisRun({ surveyId, search }: { surveyId: string; search: SurveySe
   const client = useClient();
   const patch = usePatchSearch();
   const toast = useToast();
+  const connection = useConnection();
+  const articleRef = useRef<HTMLElement>(null);
   const template = findTemplate(search.tpl ?? DEFAULT_TEMPLATE_ID) ?? (SYNTHESIS_TEMPLATES[0] as SynthesisTemplate);
   const userFilters = useMemo(() => filtersOf(search), [search]);
   const filters = useMemo(() => applyTemplate(template, userFilters), [template, userFilters]);
@@ -179,9 +204,21 @@ function SynthesisRun({ surveyId, search }: { surveyId: string; search: SurveySe
   const surveyTitle = surveys.data?.find((survey) => survey.id === surveyId)?.title ?? surveyId;
   const openCitation = (responseId: string) => patch({ r: responseId });
 
+  // On a phone the controls fill the screen, so bring the text into view as soon as it starts.
+  useEffect(() => {
+    if (!hasText || window.innerWidth >= 1024) return;
+    const quiet = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    articleRef.current?.scrollIntoView({ block: 'start', behavior: quiet ? 'auto' : 'smooth' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.status === 'streaming' && hasText]);
+
   function save(title: string, note: string) {
-    getBoardStore().add(buildInsight(state, template, { id: surveyId, title: surveyTitle }, scope, title, note));
+    const saved = getBoardStore().add(buildInsight(state, template, { id: surveyId, title: surveyTitle }, scope, title, note));
     setSaving(false);
+    if (!saved) {
+      toast({ kind: 'error', message: 'Não foi possível salvar: confira o título e tente de novo.' });
+      return;
+    }
     setSavedAt(state.text);
     toast({ message: `Insight “${title}” salvo no quadro.`, durationMs: 7000 });
   }
@@ -200,9 +237,7 @@ function SynthesisRun({ surveyId, search }: { surveyId: string; search: SurveySe
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
           <p role="status" className="m-0 text-sm text-muted">
             <span className="font-semibold text-fg">{STATUS_TEXT[state.status]}</span> Escopo: {scope}.
-            {state.sourceCount !== undefined
-              ? ` Baseada em ${formatNumber(state.sourceCount)} respostas · provedor ${state.provider}.`
-              : ''}
+            {basisText(state)}
           </p>
           <div className="flex gap-2">
             {isStreaming ? (
@@ -213,7 +248,7 @@ function SynthesisRun({ surveyId, search }: { surveyId: string; search: SurveySe
             ) : (
               <button type="button" className="btn btn-primary" onClick={() => void start()}>
                 {state.status === 'idle' ? <Sparkles aria-hidden="true" size={16} /> : <RotateCw aria-hidden="true" size={16} />}
-                {state.status === 'idle' ? 'Gerar síntese' : 'Gerar de novo'}
+                {state.status === 'idle' ? 'Gerar síntese' : state.status === 'error' ? 'Tentar de novo' : 'Gerar de novo'}
               </button>
             )}
           </div>
@@ -223,15 +258,22 @@ function SynthesisRun({ surveyId, search }: { surveyId: string; search: SurveySe
       {state.status === 'error' ? (
         <PartialNotice
           message={`${state.error ?? 'Falha ao gerar a síntese.'} ${hasText ? 'O texto abaixo está incompleto.' : ''}`}
-          onRetry={() => void start()}
+          action={
+            state.needsToken ? (
+              <button type="button" className="btn btn-sm btn-primary" onClick={connection.openDialog}>
+                Informar token
+              </button>
+            ) : undefined
+          }
         />
       ) : null}
       {state.status === 'cancelled' && hasText ? (
-        <PartialNotice message="Você cancelou a geração; o texto abaixo está incompleto." onRetry={() => void start()} />
+        <PartialNotice message="Você cancelou a geração; o texto abaixo está incompleto. Use “Gerar de novo” para recomeçar." />
       ) : null}
 
       {hasText ? (
         <m.article
+          ref={articleRef}
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           className="card"
@@ -278,7 +320,7 @@ function SynthesisRun({ surveyId, search }: { surveyId: string; search: SurveySe
 
       {state.citations.length > 0 ? (
         <section className="card" aria-label="Fontes citadas">
-          <h3 className="display m-0 mb-3 text-xl">Fontes citadas ({state.citations.length})</h3>
+          <h2 className="display m-0 mb-3 text-xl">Fontes citadas ({state.citations.length})</h2>
           <ul className="m-0 flex list-none flex-col gap-3 p-0">
             {state.citations.map((citation) => (
               <li key={citation.responseId} className="flex flex-wrap items-start gap-2">

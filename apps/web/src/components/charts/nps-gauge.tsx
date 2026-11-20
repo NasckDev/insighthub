@@ -31,7 +31,8 @@ export function NpsGauge({ value, total }: NpsGaugeProps) {
   const [markerX, markerY] = pointAt(value);
   const [innerX, innerY] = pointAt(value, RADIUS - STROKE);
   return (
-    <figure className="relative m-0 w-full max-w-[360px]">
+    <figure className="m-0 w-full max-w-[360px]">
+      <div className="relative">
       <svg
         viewBox={`0 0 ${SIZE} 150`}
         className="block w-full"
@@ -75,13 +76,13 @@ export function NpsGauge({ value, total }: NpsGaugeProps) {
           +100
         </text>
       </svg>
-      <figcaption className="absolute inset-x-0 top-[47%] flex flex-col items-center text-center">
-        <span className="display text-[52px] leading-none tabular-nums">
-          <CountUp value={value} format={formatNps} />
-        </span>
-        <span className="mt-1 text-sm font-semibold" style={{ color: zone.textColor }}>
-          {zone.label}
-        </span>
+      <p className="display absolute inset-x-0 top-[46%] m-0 text-center text-[52px] leading-none tabular-nums">
+        <CountUp value={value} format={formatNps} />
+      </p>
+      </div>
+      {/* The zone name sits below the meter, never over the scale labels, at any width. */}
+      <figcaption className="mt-2 text-center text-sm font-semibold" style={{ color: zone.textColor }}>
+        {zone.label}
       </figcaption>
     </figure>
   );

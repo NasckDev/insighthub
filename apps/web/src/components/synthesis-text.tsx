@@ -1,7 +1,8 @@
+import { ID_BODY } from '@insighthub/core';
 import type { ReactNode } from 'react';
 
-const MARKER_SPLIT = /(\[#[a-z0-9-]{1,40}\])/;
-const MARKER_ID = /^\[#([a-z0-9-]{1,40})\]$/;
+const MARKER_SPLIT = new RegExp(`(\\[#${ID_BODY}\\])`);
+const MARKER_ID = new RegExp(`^\\[#(${ID_BODY})\\]$`);
 const BOLD_SPLIT = /(\*\*[^*]+\*\*)/;
 
 interface SynthesisTextProps {

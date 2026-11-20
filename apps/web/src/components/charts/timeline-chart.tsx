@@ -2,7 +2,7 @@
 import { LOW_SAMPLE_THRESHOLD } from '@insighthub/core';
 import { useId, useState, type KeyboardEvent } from 'react';
 import { monotonePath } from '../../lib/curve';
-import { formatDayMonth, formatNps, formatNumber, formatDate } from '../../lib/format';
+import { formatDayMonth, formatDayMonthShort, formatNps, formatNumber, formatDate } from '../../lib/format';
 import type { TimelinePoint } from '../../lib/overview';
 import { useElementWidth } from './use-element-width';
 
@@ -84,8 +84,8 @@ export function TimelineChart({ points }: { points: TimelinePoint[] }) {
         ))}
         {points.map((point, index) =>
           index % labelEvery === 0 ? (
-            <text key={point.weekStart} x={x(index)} y={HEIGHT - 8} textAnchor="middle" fontSize="11" fill="var(--muted)">
-              {formatDayMonth(point.weekStart)}
+            <text key={point.weekStart} x={x(index)} y={HEIGHT - 8} textAnchor={x(index) > width - 34 ? 'end' : x(index) < MARGIN.left + 14 ? 'start' : 'middle'} fontSize="11" fill="var(--muted)">
+              {formatDayMonthShort(point.weekStart)}
             </text>
           ) : null,
         )}

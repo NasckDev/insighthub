@@ -1,7 +1,7 @@
-import { sentimentLabel, THEME_LABELS, type Theme, type ThemeStat } from '@insighthub/core';
+import { LOW_SAMPLE_THRESHOLD, sentimentLabel, THEME_LABELS, type Theme, type ThemeStat } from '@insighthub/core';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { ArrowRight, MousePointerClick, Sparkles } from 'lucide-react';
+import { ArrowRight, MousePointerClick, Sparkles, TriangleAlert } from 'lucide-react';
 import { useClient } from '../components/app-context';
 import { ChartCard } from '../components/charts/chart-card';
 import { SENTIMENT_STYLE, ThemeTable, TreemapChart } from '../components/charts/treemap-chart';
@@ -45,6 +45,15 @@ function DrillDown({ stat }: { stat: ThemeStat }) {
           </span>
         </p>
       </div>
+      {stat.lowSample ? (
+        <p role="note" className="m-0 flex items-start gap-2 rounded-xl p-3 text-sm" style={{ background: 'var(--warn-bg)', color: 'var(--warn-fg)' }}>
+          <TriangleAlert aria-hidden="true" size={16} className="mt-0.5 shrink-0" />
+          <span>
+            <strong>Amostra pequena.</strong> Menos de {LOW_SAMPLE_THRESHOLD} respostas citam este tema; o sentimento
+            varia muito com poucos dados.
+          </span>
+        </p>
+      ) : null}
       <ul className="m-0 grid list-none grid-cols-3 gap-2 p-0 text-center text-sm">
         <li className="rounded-xl bg-primary-soft p-2">
           <span className="display block text-xl tabular-nums" style={{ color: 'var(--promoter)' }}>{stat.promoters}</span>

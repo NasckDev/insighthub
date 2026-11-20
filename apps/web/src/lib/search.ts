@@ -3,6 +3,8 @@ import {
   paginationSchema,
   responseFiltersSchema,
   DEFAULT_PAGE_SIZE,
+  ID_PATTERN,
+  isInvertedRange,
   type ResponseFilters,
   type SegmentDimension,
 } from '@insighthub/core';
@@ -29,10 +31,7 @@ const surveySearchSchema = responseFiltersSchema.extend({
     .max(60_000)
     .regex(/^[A-Za-z0-9_-]+$/)
     .optional(),
-  r: z
-    .string()
-    .regex(/^[a-z0-9-]{1,40}$/)
-    .optional(),
+  r: z.string().regex(ID_PATTERN).optional(),
 });
 
 export interface SurveySearch extends ResponseFilters {
@@ -115,8 +114,11 @@ export function filtersOf(search: SurveySearch): ResponseFilters {
   if (search.nps) filters.nps = search.nps;
   if (search.q) filters.q = search.q;
   if (search.theme) filters.theme = search.theme;
-  if (search.from) filters.from = search.from;
-  if (search.to) filters.to = search.to;
+  // An inverted period (start after end) is reported in the filter panel and ignored here.
+  if (!isInvertedRange(search)) {
+    if (search.from) filters.from = search.from;
+    if (search.to) filters.to = search.to;
+  }
   return filters;
 }
 

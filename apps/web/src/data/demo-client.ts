@@ -8,6 +8,7 @@ import {
   generateSeed,
   matchesFilters,
   paginate,
+  sortResponses,
   pickHighlights,
   type ResponseFilters,
   type SeedData,
@@ -22,7 +23,6 @@ import {
   type DataClient,
   type PartialInfo,
   type RequestOptions,
-  type ResponseSort,
 } from './types';
 
 export interface DemoClientOptions {
@@ -38,13 +38,6 @@ const DEFAULT_LATENCY_MS = 380;
 const DEFAULT_CHUNK_DELAY_MS = 28;
 const PARTIAL_SHARE = 0.5;
 const INTERRUPT_AFTER_DELTAS = 24;
-
-const SORTERS: Record<ResponseSort, (a: SurveyResponse, b: SurveyResponse) => number> = {
-  recent: (a, b) => b.submittedAt.localeCompare(a.submittedAt) || a.id.localeCompare(b.id),
-  oldest: (a, b) => a.submittedAt.localeCompare(b.submittedAt) || a.id.localeCompare(b.id),
-  'score-desc': (a, b) => b.npsScore - a.npsScore || a.id.localeCompare(b.id),
-  'score-asc': (a, b) => a.npsScore - b.npsScore || a.id.localeCompare(b.id),
-};
 
 export type DemoClient = DataClient & { faults: FaultController };
 
@@ -119,7 +112,7 @@ export function createDemoClient(options: DemoClientOptions = {}): DemoClient {
 
     async listResponses(surveyId, filters, pagination, requestOptions) {
       await simulateNetwork(requestOptions);
-      const sorted = responsesOf(surveyId, filters).sort(SORTERS[pagination.sort ?? 'recent']);
+      const sorted = sortResponses(responsesOf(surveyId, filters), pagination.sort ?? 'recent');
       const page = paginate(sorted, pagination.page, pagination.pageSize);
       const { items, partial } = partialOf(page.items);
       return { ...page, items, partial };
@@ -164,7 +157,11 @@ export function createDemoClient(options: DemoClientOptions = {}): DemoClient {
       await simulateNetwork({ signal });
       const survey = requireSurvey(surveyId);
       const provider = createLocalInsightProvider({ chunkDelayMs });
-      const events = provider.stream({ survey, responses: responsesOf(surveyId, filters), focus }, signal);
+      const surveyTotal = data.responses.filter((item) => item.surveyId === surveyId).length;
+      const events = provider.stream(
+        { survey, responses: responsesOf(surveyId, filters), focus, surveyTotal },
+        signal,
+      );
       const interruptAfter =
         faults.getMode() === 'partial' ? INTERRUPT_AFTER_DELTAS : Number.POSITIVE_INFINITY;
       let deltas = 0;

@@ -1,4 +1,4 @@
-import { classifyNps, detectThemes, THEME_LABELS } from '@insighthub/core';
+import { classifyNps, detectThemes, normalizeText, THEME_LABELS } from '@insighthub/core';
 import { Frown, Meh, Smile } from 'lucide-react';
 import { NPS_SINGULAR } from '../lib/labels';
 import { personOf } from '../lib/people';
@@ -46,23 +46,45 @@ export function ThemeChips({ comment }: { comment: string }) {
   );
 }
 
-/** Wraps every occurrence of `term` (accent- and case-insensitive on the lowercase form) in <mark>. */
+/**
+ * Finds [start, end) ranges in `text` where `term` occurs, ignoring case AND accents ("preco" finds
+ * "preço"). The match runs on a normalized copy, and a map takes every hit back to the original text.
+ */
+export function findHighlightRanges(text: string, term: string | undefined): [number, number][] {
+  const needle = term ? normalizeText(term.trim()) : '';
+  if (!needle) return [];
+  let normalized = '';
+  const origin: number[] = [];
+  for (let index = 0; index < text.length; index += 1) {
+    const piece = normalizeText(text.charAt(index));
+    for (let offset = 0; offset < piece.length; offset += 1) origin.push(index);
+    normalized += piece;
+  }
+  const ranges: [number, number][] = [];
+  let hit = normalized.indexOf(needle);
+  while (hit >= 0) {
+    const start = origin[hit] as number;
+    const end = (origin[hit + needle.length - 1] as number) + 1;
+    ranges.push([start, end]);
+    hit = normalized.indexOf(needle, hit + needle.length);
+  }
+  return ranges;
+}
+
+/** Wraps every occurrence of `term` (case- and accent-insensitive) in <mark>. */
 export function HighlightText({ text, term }: { text: string; term: string | undefined }) {
-  const needle = term?.trim().toLocaleLowerCase('pt-BR');
-  if (!needle) return <>{text}</>;
-  const haystack = text.toLocaleLowerCase('pt-BR');
+  const ranges = findHighlightRanges(text, term);
+  if (ranges.length === 0) return <>{text}</>;
   const parts: React.ReactNode[] = [];
   let cursor = 0;
-  let index = haystack.indexOf(needle);
-  while (index >= 0) {
-    if (index > cursor) parts.push(text.slice(cursor, index));
+  for (const [start, end] of ranges) {
+    if (start > cursor) parts.push(text.slice(cursor, start));
     parts.push(
-      <mark key={index} className="rounded-sm px-0.5" style={{ background: 'var(--warn-bg)', color: 'var(--warn-fg)', boxShadow: '0 0 0 1px var(--warn-line)' }}>
-        {text.slice(index, index + needle.length)}
+      <mark key={start} className="rounded-sm px-0.5" style={{ background: 'var(--warn-bg)', color: 'var(--warn-fg)', boxShadow: '0 0 0 1px var(--warn-line)' }}>
+        {text.slice(start, end)}
       </mark>,
     );
-    cursor = index + needle.length;
-    index = haystack.indexOf(needle, cursor);
+    cursor = end;
   }
   parts.push(text.slice(cursor));
   return <>{parts}</>;
