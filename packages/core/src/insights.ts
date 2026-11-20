@@ -1,7 +1,7 @@
 import { z } from 'zod';
+import { ID_PATTERN } from './identifiers';
 
 const MAX_INSIGHTS = 100;
-const RESPONSE_ID = /^[a-z0-9-]{1,40}$/;
 
 export const insightSchema = z.object({
   id: z.string().min(1).max(60),
@@ -9,7 +9,7 @@ export const insightSchema = z.object({
   note: z.string().trim().max(1000),
   body: z.string().max(8000),
   citations: z
-    .array(z.object({ responseId: z.string().regex(RESPONSE_ID), quote: z.string().max(600) }))
+    .array(z.object({ responseId: z.string().regex(ID_PATTERN), quote: z.string().max(600) }))
     .max(30),
   surveyId: z.string().max(60),
   surveyTitle: z.string().max(200),
@@ -24,15 +24,21 @@ export type Insight = z.infer<typeof insightSchema>;
 export function parseBoard(raw: unknown): Insight[] {
   if (!Array.isArray(raw)) return [];
   const valid: Insight[] = [];
+  const seen = new Set<string>();
   for (const entry of raw.slice(0, MAX_INSIGHTS)) {
     const parsed = insightSchema.safeParse(entry);
-    if (parsed.success) valid.push(parsed.data);
+    if (!parsed.success || seen.has(parsed.data.id)) continue;
+    seen.add(parsed.data.id);
+    valid.push(parsed.data);
   }
   return valid;
 }
 
+/** Adds on top; an id that already exists is replaced, never duplicated. Invalid input is rejected. */
 export function addInsight(board: readonly Insight[], insight: Insight): Insight[] {
-  return [insight, ...board].slice(0, MAX_INSIGHTS);
+  const parsed = insightSchema.safeParse(insight);
+  if (!parsed.success) return [...board];
+  return [parsed.data, ...board.filter((item) => item.id !== parsed.data.id)].slice(0, MAX_INSIGHTS);
 }
 
 export function updateInsight(
@@ -53,24 +59,32 @@ export function mergeInsights(board: readonly Insight[], incoming: readonly Insi
   return [...board, ...incoming.filter((insight) => !known.has(insight.id))].slice(0, MAX_INSIGHTS);
 }
 
+/** The board has `#` for the document and `##` per insight, so a synthesis heading becomes `###`. */
 function demoteHeadings(body: string): string {
-  return body.replace(/^## /gm, '#### ');
+  return body.replace(/^## /gm, '### ');
+}
+
+const MARKDOWN_SPECIALS = /([\\`*_{}[\]<>#|])/g;
+
+/** Escapes characters that would turn plain text (a title, a note, a quote) into Markdown structure. */
+export function escapeMarkdown(text: string): string {
+  return text.replace(MARKDOWN_SPECIALS, '\\$1');
 }
 
 export function insightsToMarkdown(insights: readonly Insight[], title = 'Quadro de insights'): string {
   const blocks = insights.map((insight) => {
     const lines = [
-      `## ${insight.title}`,
+      `## ${escapeMarkdown(insight.title)}`,
       '',
-      `*${insight.surveyTitle} · ${insight.question} · ${insight.scope}*`,
+      `*${escapeMarkdown(insight.surveyTitle)} · ${escapeMarkdown(insight.question)} · ${escapeMarkdown(insight.scope)}*`,
       '',
     ];
-    if (insight.note) lines.push(`> ${insight.note.replace(/\n/g, '\n> ')}`, '');
+    if (insight.note) lines.push(`> ${escapeMarkdown(insight.note).replace(/\n/g, '\n> ')}`, '');
     lines.push(demoteHeadings(insight.body), '');
     if (insight.citations.length > 0) {
       lines.push('**Fontes**', '');
       for (const citation of insight.citations) {
-        lines.push(`- \`#${citation.responseId}\`: "${citation.quote}"`);
+        lines.push(`- \`#${citation.responseId}\`: “${escapeMarkdown(citation.quote)}”`);
       }
       lines.push('');
     }
@@ -121,7 +135,12 @@ export function encodeShare(insights: readonly Insight[]): string {
   return toBase64Url(new TextEncoder().encode(JSON.stringify(insights)));
 }
 
-const MAX_SHARE_TOKEN = 60_000;
+/** Longest share token accepted (and produced): longer links are refused with a warning, not truncated. */
+export const MAX_SHARE_TOKEN = 60_000;
+
+export function isShareTooLarge(token: string): boolean {
+  return token.length > MAX_SHARE_TOKEN;
+}
 
 /** Decodes and validates a share token; returns an empty list when it is malformed. */
 export function decodeShare(token: string): Insight[] {

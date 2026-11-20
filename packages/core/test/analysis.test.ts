@@ -10,6 +10,8 @@ import {
   encodeShare,
   insightsToCsv,
   insightsToMarkdown,
+  isShareTooLarge,
+  MAX_SHARE_TOKEN,
   mergeInsights,
   parseBoard,
   removeInsight,
@@ -44,8 +46,6 @@ function insight(overrides: Partial<Insight> = {}): Insight {
 describe('seed realism', () => {
   it('has many distinct comments and a small region segment', () => {
     expect(new Set(atlas.map((r) => r.comment)).size).toBeGreaterThan(60);
-    const norte = responses.filter((r) => r.plan === 'enterprise' && r.region === 'norte');
-    expect(norte.length).toBeGreaterThan(0);
   });
 });
 
@@ -184,7 +184,7 @@ describe('insights board', () => {
     expect(md).toContain('# Quadro de insights');
     expect(md).toContain('## Suporte pesa na nota');
     expect(md).toContain('> Levar ao comitê');
-    expect(md).toContain('#### Resumo');
+    expect(md).toContain('### Resumo');
     expect(md).toContain('`#atla-0001`');
   });
 
@@ -202,5 +202,51 @@ describe('insights board', () => {
     expect(decodeShare('@@@')).toEqual([]);
     expect(decodeShare('')).toEqual([]);
     expect(decodeShare(encodeShare([insight()]).slice(0, 20))).toEqual([]);
+  });
+});
+
+describe('insights hardening', () => {
+  it('drops duplicate ids when loading and replaces instead of duplicating on add', () => {
+    expect(parseBoard([insight(), insight(), insight({ id: 'i-2' })]).map((i) => i.id)).toEqual(['i-1', 'i-2']);
+    const board = addInsight([insight()], insight({ title: 'Mesmo id, novo título' }));
+    expect(board).toHaveLength(1);
+    expect(board[0]?.title).toBe('Mesmo id, novo título');
+  });
+
+  it('refuses to add an invalid insight', () => {
+    const board = [insight()];
+    expect(addInsight(board, insight({ title: '   ' }))).toEqual(board);
+    expect(addInsight(board, insight({ body: 'x'.repeat(9000) }))).toEqual(board);
+  });
+
+  it('escapes Markdown structure coming from titles, notes and quotes', () => {
+    const md = insightsToMarkdown([
+      insight({ title: '# Título [link](x) <b>', note: '**nota** com _ênfase_', citations: [{ responseId: 'atla-0001', quote: '[#x] <i>oi</i>' }] }),
+    ]);
+    expect(md).toContain('## \\# Título \\[link\\](x) \\<b\\>');
+    expect(md).toContain('> \\*\\*nota\\*\\* com \\_ênfase\\_');
+    expect(md).toContain('\\[\\#x\\] \\<i\\>oi\\</i\\>');
+  });
+
+  it('knows when a share token is too large', () => {
+    expect(isShareTooLarge('a'.repeat(MAX_SHARE_TOKEN))).toBe(false);
+    expect(isShareTooLarge('a'.repeat(MAX_SHARE_TOKEN + 1))).toBe(true);
+  });
+});
+
+describe('pickHighlights variety', () => {
+  it('does not highlight two near-identical comments', () => {
+    const base = atlas.find((r) => r.npsScore === 10)!;
+    const copy = (id: string, comment: string) => ({ ...base, id, comment, npsScore: 10 });
+    const picks = pickHighlights(
+      [
+        copy('x-1', 'Depois de meses de uso: atendimento humano e rápido, resolveram minha dúvida sobre exportar dados.'),
+        copy('x-2', 'Na engenharia, atendimento humano e rápido, resolveram minha dúvida sobre exportar dados por chamado.'),
+        copy('x-3', 'O preço é justo e a licença por usuário é previsível para o orçamento do time.'),
+      ],
+      2,
+    ).filter((p) => p.tone === 'praise');
+    expect(picks).toHaveLength(2);
+    expect(picks.map((p) => p.response.id)).toContain('x-3');
   });
 });

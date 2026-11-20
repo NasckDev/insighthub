@@ -1,4 +1,4 @@
-import { createLocalInsightProvider } from '@insighthub/core';
+import { createLocalInsightProvider, generateSeed, matchesFilters, sortResponses } from '@insighthub/core';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../src/app';
 import { createDatabase, ensureSchema, seedIfEmpty } from '../src/db/client';
@@ -89,6 +89,81 @@ describe('InsightHub API', () => {
     expect(text).toContain('event: meta');
     expect(text).toContain('event: citation');
     expect(text).toContain('event: done');
+  });
+
+  it('sorts by score on the server and the order is stable across pages', async () => {
+    const asc = await getJson('/api/surveys/s-atlas-q3/responses?sort=score-asc&pageSize=40');
+    const scores = (asc.body.data as { npsScore: number }[]).map((r) => r.npsScore);
+    expect(scores).toEqual([...scores].sort((a, b) => a - b));
+    const desc = await getJson('/api/surveys/s-atlas-q3/responses?sort=score-desc&pageSize=5');
+    expect((desc.body.data as { npsScore: number }[])[0]?.npsScore).toBe(10);
+    const oldest = await getJson('/api/surveys/s-atlas-q3/responses?sort=oldest&pageSize=5');
+    const days = (oldest.body.data as { submittedAt: string }[]).map((r) => r.submittedAt);
+    expect(days).toEqual([...days].sort());
+    expect((await getJson('/api/surveys/s-atlas-q3/responses?sort=x')).status).toBe(400);
+  });
+
+  it('agrees with the browser demo on accents, case, themes and whole words', async () => {
+    const { responses } = generateSeed();
+    const atlas = responses.filter((r) => r.surveyId === 's-atlas-q3');
+    for (const query of ['preco', 'PREÇO', 'desempenho', 'Lentidao', 'suporte']) {
+      const { body } = await getJson(`/api/surveys/s-atlas-q3/responses?q=${encodeURIComponent(query)}&pageSize=1`);
+      const expected = atlas.filter((r) => matchesFilters(r, { q: query })).length;
+      expect(body.meta).toMatchObject({ total: expected });
+      expect(expected).toBeGreaterThan(0);
+    }
+    const themed = await getJson('/api/surveys/s-atlas-q3/responses?theme=preço&pageSize=1');
+    expect(themed.body.meta).toMatchObject({
+      total: atlas.filter((r) => matchesFilters(r, { theme: 'preço' })).length,
+    });
+  });
+
+  it('orders memory-filtered pages like the demo does', async () => {
+    const { responses } = generateSeed();
+    const expected = sortResponses(
+      responses.filter((r) => r.surveyId === 's-atlas-q3' && matchesFilters(r, { q: 'suporte' })),
+      'score-asc',
+    )
+      .slice(0, 10)
+      .map((r) => r.id);
+    const { body } = await getJson('/api/surveys/s-atlas-q3/responses?q=suporte&sort=score-asc&pageSize=10');
+    expect((body.data as { id: string }[]).map((r) => r.id)).toEqual(expected);
+  });
+
+  it('validates the period and reports the truncation flag', async () => {
+    expect((await getJson('/api/surveys/s-atlas-q3/responses?from=2026-99-99')).status).toBe(400);
+    const { body } = await getJson('/api/surveys/s-atlas-q3/compare?dimension=plan');
+    expect(body.meta).toMatchObject({ truncated: false });
+  });
+
+  it('answers 400 to a synthesis body that is not JSON', async () => {
+    const res = await app.request('/api/surveys/s-atlas-q3/synthesis', { method: 'POST', body: '{nope' });
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as Envelope).error?.code).toBe('INVALID_JSON');
+  });
+
+  it('sends honest counts in the synthesis meta event', async () => {
+    const res = await app.request('/api/surveys/s-atlas-q3/synthesis', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ filters: { plan: ['free'] } }),
+    });
+    const text = await res.text();
+    const meta = /data: ({"type":"meta".*})/.exec(text)?.[1];
+    const event = JSON.parse(meta ?? '{}') as { sourceCount: number; totalCount: number };
+    expect(event.sourceCount).toBe(event.totalCount);
+    expect(event.totalCount).toBeGreaterThan(0);
+  });
+
+  it('does not spend the rate limit on CORS preflights', async () => {
+    const limited = buildApp(2);
+    for (let i = 0; i < 10; i += 1) {
+      const res = await limited.app.request('/api/health', {
+        method: 'OPTIONS',
+        headers: { Origin: 'http://localhost:5173', 'Access-Control-Request-Method': 'GET' },
+      });
+      expect(res.status).not.toBe(429);
+    }
   });
 
   it('allows CORS only for configured origins', async () => {

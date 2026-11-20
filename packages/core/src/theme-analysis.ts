@@ -1,4 +1,6 @@
+import { LOW_SAMPLE_THRESHOLD } from './compare';
 import { classifyNps } from './nps';
+import { roundSymmetric } from './text';
 import { detectThemes, THEME_KEYS, THEME_LABELS, type Theme } from './themes';
 import type { SurveyResponse } from './types';
 
@@ -13,6 +15,8 @@ export interface ThemeStat {
   share: number;
   /** NPS of the responses that mention the theme, -100 to 100. */
   sentiment: number;
+  /** Fewer mentions than the comparison threshold: the sentiment is noise, not a finding. */
+  lowSample: boolean;
 }
 
 export type SentimentLabel = 'positive' | 'mixed' | 'negative';
@@ -50,7 +54,8 @@ export function analyzeThemes(responses: readonly SurveyResponse[]): ThemeStat[]
         mentions,
         ...counts,
         share: Math.round((mentions / responses.length) * 100),
-        sentiment: Math.round(((counts.promoters - counts.detractors) / mentions) * 100),
+        sentiment: roundSymmetric(((counts.promoters - counts.detractors) / mentions) * 100),
+        lowSample: mentions < LOW_SAMPLE_THRESHOLD,
       },
     ];
   }).sort((a, b) => b.mentions - a.mentions || a.theme.localeCompare(b.theme));

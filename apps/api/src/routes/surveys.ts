@@ -2,6 +2,7 @@ import {
   compareSegments,
   computeNps,
   dimensionSchema,
+  ID_PATTERN,
   paginationSchema,
   responseFiltersQuerySchema,
 } from '@insighthub/core';
@@ -10,7 +11,7 @@ import { z } from 'zod';
 import { HttpError, ok, parseInput } from '../http/envelope';
 import type { SurveyRepository } from '../repositories/survey-repository';
 
-const idSchema = z.string().regex(/^[a-z0-9-]{1,40}$/, 'id inválido');
+const idSchema = z.string().regex(ID_PATTERN, 'id inválido');
 
 export function surveyRoutes(repo: SurveyRepository) {
   const app = new Hono();
@@ -47,9 +48,9 @@ export function surveyRoutes(repo: SurveyRepository) {
     const query = c.req.query();
     const filters = parseInput(responseFiltersQuerySchema, query);
     const dimension = parseInput(dimensionSchema, query.dimension ?? 'plan');
-    const rows = await repo.findResponses(survey.id, filters);
+    const { items: rows, truncated } = await repo.findResponses(survey.id, filters);
     const overall = computeNps(rows.map((r) => r.npsScore));
-    return c.json(ok({ dimension, overall, segments: compareSegments(rows, dimension) }));
+    return c.json(ok({ dimension, overall, segments: compareSegments(rows, dimension) }, { truncated }));
   });
 
   return app;

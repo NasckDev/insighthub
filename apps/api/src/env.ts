@@ -15,7 +15,7 @@ const envSchema = z.object({
   RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(1).default(120),
   SYNTHESIS_LIMIT_PER_MINUTE: z.coerce.number().int().min(1).default(10),
   ANTHROPIC_API_KEY: z.string().min(1).optional(),
-  ANTHROPIC_MODEL: z.string().min(1).default('claude-opus-5-5'),
+  ANTHROPIC_MODEL: z.string().min(1).default('claude-sonnet-5-5'),
   INSIGHTHUB_API_TOKEN: z.string().min(16, 'use pelo menos 16 caracteres').optional(),
 });
 

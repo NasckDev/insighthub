@@ -70,7 +70,7 @@ export interface Citation {
 }
 
 export type SynthesisEvent =
-  | { type: 'meta'; provider: string; sourceCount: number }
+  | { type: 'meta'; provider: string; sourceCount: number; totalCount?: number; truncated?: boolean }
   | { type: 'delta'; text: string }
   | { type: 'citation'; citation: Citation }
   | { type: 'done' }

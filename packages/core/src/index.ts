@@ -1,4 +1,6 @@
 export * from './types';
+export * from './text';
+export * from './identifiers';
 export * from './nps';
 export * from './filters';
 export * from './compare';

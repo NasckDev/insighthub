@@ -2,6 +2,8 @@ import { classifyNps, computeNps } from './nps';
 import type { SynthesisFocus } from './synthesis-templates';
 import { analyzeThemes, type ThemeStat } from './theme-analysis';
 import { abortableSleep } from './retry';
+import { ID_BODY } from './identifiers';
+import { sanitizeComment } from './text';
 import { detectThemes, THEME_LABELS, type Theme } from './themes';
 import type { Citation, NpsCategory, Survey, SurveyResponse, SynthesisEvent } from './types';
 
@@ -9,6 +11,10 @@ export interface SynthesisInput {
   survey: Survey;
   responses: readonly SurveyResponse[];
   focus?: SynthesisFocus;
+  /** Size of the whole survey, for honest percentages when the selection is a slice of it. */
+  surveyTotal?: number;
+  /** True when the data layer cut the selection short (row limit), so the text covers a prefix. */
+  truncated?: boolean;
 }
 
 /** Contract implemented by every synthesis backend (local extractive, Claude, ...). */
@@ -37,7 +43,9 @@ export function summarizeThemes(responses: readonly SurveyResponse[]): ThemeSumm
   const byTheme = new Map<Theme, SurveyResponse[]>();
   for (const response of responses) {
     for (const theme of detectThemes(response.comment)) {
-      byTheme.set(theme, [...(byTheme.get(theme) ?? []), response]);
+      const list = byTheme.get(theme);
+      if (list) list.push(response);
+      else byTheme.set(theme, [response]);
     }
   }
   return [...byTheme.entries()]
@@ -93,6 +101,7 @@ export function buildExtractiveSynthesis({
   survey,
   responses,
   focus = 'overview',
+  surveyTotal,
 }: SynthesisInput): ExtractiveSynthesis {
   if (responses.length === 0) {
     return { text: 'Nenhuma resposta corresponde aos filtros atuais.', citations: [] };
@@ -118,12 +127,7 @@ export function buildExtractiveSynthesis({
   const mixedCategories =
     [breakdown.promoters, breakdown.passives, breakdown.detractors].filter((count) => count > 0).length > 1;
 
-  const lines = [
-    `## ${FOCUS_TITLE[focus]}`,
-    `Síntese de ${breakdown.total} respostas de "${survey.title}". ` +
-      `NPS ${signedNps(breakdown.nps)}: ${breakdown.promoters} promotores, ` +
-      `${breakdown.passives} neutros e ${breakdown.detractors} detratores.`,
-  ];
+  const lines = [`## ${FOCUS_TITLE[focus]}`, headline(survey.title, breakdown, mixedCategories, surveyTotal)];
   if (breakdown.total < MIN_RELIABLE_SAMPLE) {
     lines.push(`Atenção: com ${breakdown.total} respostas a amostra é pequena; trate como indício, não como regra.`);
   }
@@ -131,7 +135,7 @@ export function buildExtractiveSynthesis({
   for (const { stat, representative } of picked) {
     lines.push(
       `- **${THEME_LABELS[stat.theme]}**: ${stat.mentions} menções${mixedCategories ? `, ${stat.detractors} de detratores` : ''}. ` +
-        `Exemplo: “${representative.comment}” [#${representative.id}]`,
+        `Exemplo: “${sanitizeComment(representative.comment)}” [#${representative.id}]`,
     );
   }
   if (picked.length === 0) lines.push('- Nenhum tema recorrente identificado.');
@@ -160,7 +164,13 @@ export function createLocalInsightProvider(options: LocalProviderOptions = {}): 
     name: 'local-extractive',
     async *stream(input, signal) {
       const { text, citations } = buildExtractiveSynthesis(input);
-      yield { type: 'meta', provider: 'local-extractive', sourceCount: input.responses.length };
+      yield {
+        type: 'meta',
+        provider: 'local-extractive',
+        sourceCount: input.responses.length,
+        totalCount: input.responses.length,
+        truncated: input.truncated,
+      };
       for (const chunk of text.match(/\S+\s*/g) ?? []) {
         if (chunkDelayMs > 0) await abortableSleep(chunkDelayMs, signal);
         yield { type: 'delta', text: chunk };
@@ -171,7 +181,7 @@ export function createLocalInsightProvider(options: LocalProviderOptions = {}): 
   };
 }
 
-const CITATION_MARKER = /\[#([a-z0-9-]{1,40})\]/g;
+const CITATION_MARKER = new RegExp(`\\[#(${ID_BODY})\\]`, 'g');
 
 /** Extracts `[#id]` markers, keeping only ids that exist in the source set (no invented sources). */
 export function extractCitations(text: string, sources: readonly SurveyResponse[]): Citation[] {
@@ -193,4 +203,31 @@ function signedNps(value: number): string {
   if (value > 0) return `+${value}`;
   if (value < 0) return `\u2212${Math.abs(value)}`;
   return '0';
+}
+
+const CATEGORY_WORDS = { promoters: 'promotores', passives: 'neutros', detractors: 'detratores' } as const;
+
+/**
+ * First line of the text. A mixed selection gets the NPS; a slice that is entirely one group
+ * (only detractors, say) gets a count and a share instead, because its NPS would be -100 or +100 by
+ * construction and tell the reader nothing.
+ */
+function headline(
+  title: string,
+  breakdown: ReturnType<typeof computeNps>,
+  mixed: boolean,
+  totalCount: number | undefined,
+): string {
+  const base = `Síntese de ${breakdown.total} respostas de "${title}". `;
+  if (mixed) {
+    return (
+      base +
+      `NPS ${signedNps(breakdown.nps)}: ${breakdown.promoters} promotores, ` +
+      `${breakdown.passives} neutros e ${breakdown.detractors} detratores.`
+    );
+  }
+  const key = (Object.keys(CATEGORY_WORDS) as (keyof typeof CATEGORY_WORDS)[]).find((k) => breakdown[k] > 0);
+  const word = key ? CATEGORY_WORDS[key] : 'respostas';
+  const share = totalCount && totalCount > 0 ? ` (${Math.round((breakdown.total / totalCount) * 100)}% das ${totalCount} respostas da pesquisa)` : '';
+  return `${base}Todas são de ${word}${share}.`;
 }

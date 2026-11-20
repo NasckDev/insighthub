@@ -21,7 +21,9 @@ export function compareSegments(
   const groups = new Map<string, number[]>();
   for (const response of responses) {
     const key = response[dimension];
-    groups.set(key, [...(groups.get(key) ?? []), response.npsScore]);
+    const scores = groups.get(key);
+    if (scores) scores.push(response.npsScore);
+    else groups.set(key, [response.npsScore]);
   }
   return [...groups.entries()]
     .map(([segment, scores]) => {

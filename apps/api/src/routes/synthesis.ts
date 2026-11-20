@@ -1,4 +1,4 @@
-import { isAbortError, responseFiltersSchema, type InsightProvider } from '@insighthub/core';
+import { ID_PATTERN, isAbortError, responseFiltersSchema, type InsightProvider } from '@insighthub/core';
 import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
 import { z } from 'zod';
@@ -10,7 +10,18 @@ const bodySchema = z.object({
   filters: responseFiltersSchema.default({}),
   focus: z.enum(['overview', 'problems', 'strengths', 'opportunities']).default('overview'),
 });
-const idSchema = z.string().regex(/^[a-z0-9-]{1,40}$/);
+/** An empty body means "no filters"; a body that is not valid JSON is a client error, not a default. */
+async function readJsonBody(request: Request): Promise<unknown> {
+  const raw = await request.text();
+  if (!raw.trim()) return {};
+  try {
+    return JSON.parse(raw) as unknown;
+  } catch {
+    throw new HttpError(400, 'INVALID_JSON', 'O corpo da requisição não é um JSON válido');
+  }
+}
+
+const idSchema = z.string().regex(ID_PATTERN);
 
 export function synthesisRoutes(repo: SurveyRepository, provider: InsightProvider) {
   const app = new Hono();
@@ -18,16 +29,18 @@ export function synthesisRoutes(repo: SurveyRepository, provider: InsightProvide
   app.post('/:id/synthesis', async (c) => {
     const survey = await repo.getSurvey(parseInput(idSchema, c.req.param('id')));
     if (!survey) throw new HttpError(404, 'NOT_FOUND', 'Pesquisa não encontrada');
-    const body: unknown = await c.req.json().catch(() => ({}));
-    const { filters, focus } = parseInput(bodySchema, body);
-    const responses = await repo.findResponses(survey.id, filters);
+    const { filters, focus } = parseInput(bodySchema, await readJsonBody(c.req.raw));
+    const [{ items: responses, truncated }, surveyTotal] = await Promise.all([
+      repo.findResponses(survey.id, filters),
+      repo.countResponses(survey.id),
+    ]);
 
     return streamSSE(c, async (stream) => {
       const controller = new AbortController();
       stream.onAbort(() => controller.abort());
       c.req.raw.signal.addEventListener('abort', () => controller.abort(), { once: true });
       try {
-        for await (const event of provider.stream({ survey, responses, focus }, controller.signal)) {
+        for await (const event of provider.stream({ survey, responses, focus, surveyTotal, truncated }, controller.signal)) {
           await stream.writeSSE({ event: event.type, data: JSON.stringify(event) });
         }
       } catch (error: unknown) {

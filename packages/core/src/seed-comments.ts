@@ -37,6 +37,15 @@ export const POSITIVE_COMMENTS = [
   'O relatório por plano mostrou onde estávamos perdendo clientes. Valeu cada centavo da licença.',
   'Interface moderna e acessível, até quem enxerga mal consegue usar com o teclado.',
   'Tudo carrega rápido e os filtros respondem na hora. Isso faz diferença em reunião ao vivo.',
+  'O gráfico de evolução ajudou a explicar para a diretoria por que o NPS subiu depois do ajuste no onboarding.',
+  'Já testamos outras ferramentas; aqui a leitura das falas por tema deixou a análise bem mais ágil.',
+  'O suporte indicou o filtro certo para isolar os detratores do plano Free e resolvemos o problema em uma reunião.',
+  'Os conectores com o nosso CRM e o webhook para o Slack funcionaram sem esforço.',
+  'O custo cabe no orçamento do time e a licença por usuário é previsível.',
+  'Menus enxutos e atalhos de teclado: usar o dia todo é confortável.',
+  'Abrimos um chamado sobre exportar relatórios e o atendimento entregou um modelo pronto no mesmo dia.',
+  'Carregamento instantâneo dos gráficos, mesmo ao cruzar plano com região e função.',
+  'A interface é simples e o time de pesquisa não precisou de treinamento para começar a usar.',
 ] as const;
 
 export const NEUTRAL_COMMENTS = [
@@ -59,9 +68,16 @@ export const NEUTRAL_COMMENTS = [
   'Gosto da proposta, mas o carregamento do gráfico de evolução às vezes demora alguns segundos.',
   'Boa ferramenta. A integração com webhook poderia avisar quando falha, hoje descubro por acaso.',
   'A navegação é intuitiva em geral, só o menu de pesquisas encerradas confunde um pouco.',
-  'Estou satisfeito, mas gostaria de relatórios agendados por e-mail toda segunda-feira.',
+  'Estamos satisfeitos, mas gostaria de relatórios agendados por e-mail toda segunda-feira.',
   'A síntese ajuda, mas queria que o texto indicasse melhor o tamanho da amostra de cada tema.',
   'Suporte bom, documentação razoável. Sinto falta de exemplos de integração com ferramentas de BI.',
+  'Os gráficos são bons, mas a exportação para CSV vem sem a coluna do tema.',
+  'Bom custo-benefício no plano Pro; no Enterprise o preço sobe mais do que o valor percebido.',
+  'O atendimento é cordial, só gostaria de acompanhar o chamado por e-mail.',
+  'Funciona bem, mas o dashboard por segmento poderia lembrar os filtros da última visita.',
+  'A interface é limpa, porém o menu de configurações esconde a parte de integração com o CRM.',
+  'A API cobre o básico; faltam webhooks para alertar quando uma nota baixa chega.',
+  'Carrega rápido na maior parte do tempo, só a tela de comparação às vezes pesa.',
 ] as const;
 
 export const NEGATIVE_COMMENTS = [
@@ -95,15 +111,32 @@ export const NEGATIVE_COMMENTS = [
   'Procurei integração com nosso CRM e a API só atende a casos básicos. Faltam exemplos.',
   'Muita coisa para clicar e pouca explicação. A navegação é um labirinto para quem é novo.',
   'Atendimento por chamado é lento e o time de suporte pede as mesmas informações duas vezes.',
+  'O reajuste da licença veio acima da inflação e sem novidades no produto.',
+  'Pedi ajuda sobre exportação e o atendimento mandou três respostas diferentes em três dias.',
+  'A tela de respostas congela quando abro mais de uma pesquisa ao mesmo tempo.',
+  'Os menus mudaram de lugar e agora preciso de mais cliques para chegar ao relatório de segmentos.',
+  'A integração com o CRM pelo conector é instável e o webhook falha sem avisar.',
+  'O custo por usuário não se paga para quem só consulta o gráfico uma vez por mês.',
+  'A interface em telas pequenas é difícil de usar e o carregamento passa de dez segundos.',
+  'Preciso de planilha para fechar a análise porque o relatório não separa segmento por região e plano.',
 ] as const;
 
 export const ROLE_PREFIX: Record<Role, readonly string[]> = {
-  produto: ['Como PM, ', 'Do lado de produto: ', 'Para quem decide roadmap, '],
-  engenharia: ['Pelo lado técnico: ', 'Como engenheiro, ', 'Olhando a parte de dados: '],
-  design: ['Como designer, ', 'Falando de experiência de uso: ', 'Pela ótica de design: '],
-  pesquisa: ['Como pesquisadora, ', 'Para quem conduz pesquisa todo dia: ', 'Na minha rotina de pesquisa: '],
-  marketing: ['Do lado de marketing: ', 'Como analista de marketing, ', 'Para campanhas, '],
+  produto: ['Na área de produto, ', 'Pensando em roadmap, ', 'Do lado de produto: '],
+  engenharia: ['Pelo lado técnico: ', 'Na engenharia, ', 'Olhando a parte de dados: '],
+  design: ['No design, ', 'Falando de experiência de uso: ', 'Pela ótica de quem desenha: '],
+  pesquisa: ['Na rotina de pesquisa, ', 'Trabalhando com pesquisa todo dia, ', 'Para quem conduz estudos: '],
+  marketing: ['No marketing, ', 'Do lado de campanhas: ', 'Para quem acompanha resultados de marketing, '],
 };
+
+export const OPENINGS = [
+  'Resumindo: ',
+  'Falando com franqueza: ',
+  'Depois de alguns meses de uso: ',
+  'Para o nosso caso: ',
+  'Sendo direto: ',
+  'Na prática, ',
+] as const;
 
 export const TAILS_POSITIVE = [
   ' Obrigado por perguntar.',

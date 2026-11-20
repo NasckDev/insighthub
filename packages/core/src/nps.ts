@@ -1,3 +1,4 @@
+import { roundSymmetric } from './text';
 import type { NpsCategory } from './types';
 
 export const NPS_MIN = 0;
@@ -27,7 +28,7 @@ export function computeNps(scores: readonly number[]): NpsBreakdown {
   const counts = { promoter: 0, passive: 0, detractor: 0 };
   for (const score of scores) counts[classifyNps(score)] += 1;
   const total = scores.length;
-  const nps = total === 0 ? 0 : Math.round(((counts.promoter - counts.detractor) / total) * 100);
+  const nps = total === 0 ? 0 : roundSymmetric(((counts.promoter - counts.detractor) / total) * 100);
   return {
     total,
     promoters: counts.promoter,

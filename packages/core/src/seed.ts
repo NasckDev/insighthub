@@ -1,6 +1,7 @@
 import {
   NEGATIVE_COMMENTS,
   NEUTRAL_COMMENTS,
+  OPENINGS,
   POSITIVE_COMMENTS,
   ROLE_PREFIX,
   TAILS_CRITICAL,
@@ -45,7 +46,7 @@ const REGION_WEIGHTS: Record<Region, number> = {
   sul: 20,
   nordeste: 20,
   'centro-oeste': 12,
-  norte: 8,
+  norte: 1,
 };
 const PLAN_BIAS: Record<Plan, number> = { free: -1.5, pro: 0.3, enterprise: 1.2 };
 const TREND_SPAN_DAYS = 60;
@@ -62,8 +63,10 @@ function scoreFor(rng: () => number, plan: Plan, surveyBias: number, dayOffset: 
 function commentFor(rng: () => number, score: number, role: (typeof ROLES)[number]): string {
   const bank = score >= 9 ? POSITIVE_COMMENTS : score >= 7 ? NEUTRAL_COMMENTS : NEGATIVE_COMMENTS;
   const base = pick(rng, bank);
+  const roll = rng();
+  const lowered = `${base.charAt(0).toLocaleLowerCase('pt-BR')}${base.slice(1)}`;
   const prefixed =
-    rng() < 0.4 ? `${pick(rng, ROLE_PREFIX[role])}${base.charAt(0).toLocaleLowerCase('pt-BR')}${base.slice(1)}` : base;
+    roll < 0.3 ? `${pick(rng, ROLE_PREFIX[role])}${lowered}` : roll < 0.5 ? `${pick(rng, OPENINGS)}${lowered}` : base;
   const text = prefixed.charAt(0).toLocaleUpperCase('pt-BR') + prefixed.slice(1);
   const tails = score >= 9 ? TAILS_POSITIVE : TAILS_CRITICAL;
   return rng() < 0.2 ? `${text}${pick(rng, tails)}` : text;

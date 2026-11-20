@@ -44,7 +44,7 @@ describe('responseFiltersQuerySchema', () => {
 
 describe('paginationSchema', () => {
   it('applies defaults and caps the page size', () => {
-    expect(paginationSchema.parse({})).toEqual({ page: 1, pageSize: 20 });
+    expect(paginationSchema.parse({})).toEqual({ page: 1, pageSize: 20, sort: 'recent' });
     expect(paginationSchema.safeParse({ pageSize: '500' }).success).toBe(false);
   });
 });
