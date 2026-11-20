@@ -23,10 +23,11 @@ interface RevealProps {
 
 /** Fade and rise on entry, staggered by `index`. */
 export function Reveal({ index = 0, className, children }: RevealProps) {
+  const reduced = useReducedMotion();
   return (
     <m.div
-      className={className}
-      initial={{ opacity: 0, y: 10 }}
+      className={`min-w-0 ${className ?? ''}`}
+      initial={reduced ? false : { opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.28, ease: 'easeOut', delay: Math.min(index, MAX_STAGGER_ITEMS) * STAGGER_S }}
     >
@@ -37,9 +38,10 @@ export function Reveal({ index = 0, className, children }: RevealProps) {
 
 /** Route transition wrapper: a short fade and slide when the screen changes. */
 export function PageTransition({ children }: { children: ReactNode }) {
+  const reduced = useReducedMotion();
   return (
     <m.div
-      initial={{ opacity: 0, y: 8 }}
+      initial={reduced ? false : { opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.22, ease: 'easeOut' }}
     >

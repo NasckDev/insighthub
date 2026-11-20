@@ -24,6 +24,8 @@ function watchProblems(page: Page): string[] {
 }
 
 async function expectNoViolations(page: Page, label: string, scope?: string) {
+  // Colors are only meaningful once every entry animation has finished.
+  await page.waitForFunction(() => document.getAnimations().every((animation) => animation.playState !== 'running'));
   const builder = new AxeBuilder({ page }).withTags(AXE_TAGS);
   // A modal dims the page behind it on purpose, so axe is pointed at the modal itself.
   const results = await (scope ? builder.include(scope) : builder).analyze();
