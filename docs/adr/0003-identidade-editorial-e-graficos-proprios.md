@@ -1,6 +1,6 @@
 # ADR 0003 — Identidade editorial e gráficos em SVG próprio
 
-- Status: aceito
+- Status: aceito (a parte visual foi substituída pelo [ADR 0006](0006-ant-design-echarts-e-camada-de-ui.md))
 - Data: 2026-11-19
 
 ## Contexto
