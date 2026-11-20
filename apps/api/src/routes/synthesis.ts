@@ -6,7 +6,10 @@ import { HttpError, parseInput } from '../http/envelope';
 import { logger } from '../logger';
 import type { SurveyRepository } from '../repositories/survey-repository';
 
-const bodySchema = z.object({ filters: responseFiltersSchema.default({}) });
+const bodySchema = z.object({
+  filters: responseFiltersSchema.default({}),
+  focus: z.enum(['overview', 'problems', 'strengths', 'opportunities']).default('overview'),
+});
 const idSchema = z.string().regex(/^[a-z0-9-]{1,40}$/);
 
 export function synthesisRoutes(repo: SurveyRepository, provider: InsightProvider) {
@@ -16,7 +19,7 @@ export function synthesisRoutes(repo: SurveyRepository, provider: InsightProvide
     const survey = await repo.getSurvey(parseInput(idSchema, c.req.param('id')));
     if (!survey) throw new HttpError(404, 'NOT_FOUND', 'Pesquisa não encontrada');
     const body: unknown = await c.req.json().catch(() => ({}));
-    const { filters } = parseInput(bodySchema, body);
+    const { filters, focus } = parseInput(bodySchema, body);
     const responses = await repo.findResponses(survey.id, filters);
 
     return streamSSE(c, async (stream) => {
@@ -24,7 +27,7 @@ export function synthesisRoutes(repo: SurveyRepository, provider: InsightProvide
       stream.onAbort(() => controller.abort());
       c.req.raw.signal.addEventListener('abort', () => controller.abort(), { once: true });
       try {
-        for await (const event of provider.stream({ survey, responses }, controller.signal)) {
+        for await (const event of provider.stream({ survey, responses, focus }, controller.signal)) {
           await stream.writeSSE({ event: event.type, data: JSON.stringify(event) });
         }
       } catch (error: unknown) {

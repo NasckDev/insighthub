@@ -39,3 +39,12 @@ export function compareSegments(
     })
     .sort((a, b) => b.nps - a.nps || a.segment.localeCompare(b.segment));
 }
+
+export interface SegmentDelta extends SegmentStat {
+  /** NPS points above (+) or below (-) the overall NPS. */
+  delta: number;
+}
+
+export function withDeltas(stats: readonly SegmentStat[], overallNps: number): SegmentDelta[] {
+  return stats.map((stat) => ({ ...stat, delta: stat.nps - overallNps }));
+}

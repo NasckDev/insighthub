@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { classifyNps } from './nps';
+import { detectThemes, THEME_KEYS } from './themes';
 import {
   NPS_CATEGORIES,
   PLANS,
@@ -8,6 +9,8 @@ import {
   SEGMENT_DIMENSIONS,
   type SurveyResponse,
 } from './types';
+
+const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 export const MAX_SEARCH_LENGTH = 100;
 export const MAX_PAGE_SIZE = 100;
@@ -20,6 +23,10 @@ export const responseFiltersSchema = z.object({
   role: z.array(z.enum(ROLES)).optional(),
   nps: z.enum(NPS_CATEGORIES).optional(),
   q: z.string().trim().max(MAX_SEARCH_LENGTH).optional(),
+  theme: z.enum(THEME_KEYS).optional(),
+  /** Inclusive submission date range, `YYYY-MM-DD` (UTC). */
+  from: isoDate.optional(),
+  to: isoDate.optional(),
 });
 
 export type ResponseFilters = z.infer<typeof responseFiltersSchema>;
@@ -49,6 +56,9 @@ export const responseFiltersQuerySchema = z.object({
   role: csvOf(ROLES),
   nps: z.enum(NPS_CATEGORIES).optional(),
   q: z.string().trim().max(MAX_SEARCH_LENGTH).optional(),
+  theme: z.enum(THEME_KEYS).optional(),
+  from: isoDate.optional(),
+  to: isoDate.optional(),
 });
 
 function isActive(list: readonly string[] | undefined): list is readonly string[] {
@@ -60,6 +70,10 @@ export function matchesFilters(response: SurveyResponse, filters: ResponseFilter
   if (isActive(filters.region) && !filters.region.includes(response.region)) return false;
   if (isActive(filters.role) && !filters.role.includes(response.role)) return false;
   if (filters.nps && classifyNps(response.npsScore) !== filters.nps) return false;
+  if (filters.theme && !detectThemes(response.comment).includes(filters.theme)) return false;
+  const day = response.submittedAt.slice(0, 10);
+  if (filters.from && day < filters.from) return false;
+  if (filters.to && day > filters.to) return false;
   const term = filters.q?.trim().toLocaleLowerCase('pt-BR');
   if (term && !response.comment.toLocaleLowerCase('pt-BR').includes(term)) return false;
   return true;
@@ -74,5 +88,9 @@ export function filtersToSearchParams(filters: ResponseFilters): URLSearchParams
   }
   if (filters.nps) params.set('nps', filters.nps);
   if (filters.q) params.set('q', filters.q);
+  for (const key of ['theme', 'from', 'to'] as const) {
+    const value = filters[key];
+    if (value) params.set(key, value);
+  }
   return params;
 }

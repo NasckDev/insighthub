@@ -1,6 +1,7 @@
 import {
   computeNps,
   npsRange,
+  THEMES,
   type Page,
   type Pagination,
   type ResponseFilters,
@@ -8,7 +9,7 @@ import {
   type SurveyResponse,
   type SurveySummary,
 } from '@insighthub/core';
-import { and, asc, between, count, eq, inArray, sql, type SQL } from 'drizzle-orm';
+import { and, asc, between, count, eq, inArray, or, sql, type SQL } from 'drizzle-orm';
 import type { Database } from '../db/client';
 import { responses, surveys } from '../db/schema';
 
@@ -27,6 +28,14 @@ function buildWhere(surveyId: string, filters: ResponseFilters): SQL | undefined
   if (filters.q) {
     // Parameterized, and instr() avoids LIKE wildcard injection.
     conditions.push(sql`instr(lower(${responses.comment}), lower(${filters.q})) > 0`);
+  }
+  if (filters.from) conditions.push(sql`substr(${responses.submittedAt}, 1, 10) >= ${filters.from}`);
+  if (filters.to) conditions.push(sql`substr(${responses.submittedAt}, 1, 10) <= ${filters.to}`);
+  if (filters.theme) {
+    const keywords = THEMES[filters.theme].map(
+      (keyword) => sql`instr(lower(${responses.comment}), ${keyword}) > 0`,
+    );
+    conditions.push(or(...keywords));
   }
   return and(...conditions);
 }

@@ -25,3 +25,5 @@ export function detectThemes(text: string): Theme[] {
     THEMES[theme].some((keyword) => normalized.includes(keyword)),
   );
 }
+
+export const THEME_KEYS = Object.keys(THEMES) as [Theme, ...Theme[]];

@@ -1,11 +1,14 @@
 import { classifyNps, computeNps } from './nps';
+import type { SynthesisFocus } from './synthesis-templates';
+import { analyzeThemes, type ThemeStat } from './theme-analysis';
 import { abortableSleep } from './retry';
 import { detectThemes, THEME_LABELS, type Theme } from './themes';
-import type { Citation, Survey, SurveyResponse, SynthesisEvent } from './types';
+import type { Citation, NpsCategory, Survey, SurveyResponse, SynthesisEvent } from './types';
 
 export interface SynthesisInput {
   survey: Survey;
   responses: readonly SurveyResponse[];
+  focus?: SynthesisFocus;
 }
 
 /** Contract implemented by every synthesis backend (local extractive, Claude, ...). */
@@ -56,25 +59,92 @@ export interface ExtractiveSynthesis {
   citations: Citation[];
 }
 
-export function buildExtractiveSynthesis({ survey, responses }: SynthesisInput): ExtractiveSynthesis {
+const FOCUS_TITLE: Record<SynthesisFocus, string> = {
+  overview: 'Resumo executivo',
+  problems: 'Principais motivos de insatisfação',
+  strengths: 'O que os clientes mais valorizam',
+  opportunities: 'Oportunidades de produto',
+};
+
+const THEME_ACTIONS: Record<Theme, string> = {
+  desempenho: 'Investigar os gargalos de carregamento e publicar um orçamento de desempenho',
+  usabilidade: 'Revisar a navegação e o primeiro uso com quem está começando',
+  suporte: 'Definir prazo de primeira resposta e dar um dono a cada chamado',
+  preço: 'Explicar melhor o valor de cada plano e rever a transição entre eles',
+  integrações: 'Priorizar conectores e webhooks pedidos, com exemplos na documentação',
+  relatórios: 'Oferecer modelos de relatório e salvar combinações de filtros',
+};
+
+const MIN_RELIABLE_SAMPLE = 10;
+const THEMES_SHOWN = 4;
+const FOCUS_CATEGORY: Partial<Record<SynthesisFocus, NpsCategory>> = {
+  problems: 'detractor',
+  strengths: 'promoter',
+};
+
+function rankFor(focus: SynthesisFocus, stat: ThemeStat): number {
+  if (focus === 'problems') return stat.detractors;
+  if (focus === 'strengths') return stat.promoters;
+  if (focus === 'opportunities') return stat.detractors + stat.passives;
+  return stat.mentions;
+}
+
+export function buildExtractiveSynthesis({
+  survey,
+  responses,
+  focus = 'overview',
+}: SynthesisInput): ExtractiveSynthesis {
   if (responses.length === 0) {
     return { text: 'Nenhuma resposta corresponde aos filtros atuais.', citations: [] };
   }
   const breakdown = computeNps(responses.map((r) => r.npsScore));
-  const themes = summarizeThemes(responses);
+  const wanted = FOCUS_CATEGORY[focus];
+  const ranked = analyzeThemes(responses)
+    .map((stat) => ({ stat, score: rankFor(focus, stat) }))
+    .filter(({ score }) => score > 0)
+    .sort((a, b) => b.score - a.score || a.stat.theme.localeCompare(b.stat.theme))
+    .slice(0, THEMES_SHOWN);
+  // Each theme gets its own example whenever possible, so the text never repeats the same quote.
+  const usedComments = new Set<string>();
+  const picked = ranked.map(({ stat }) => {
+    const matches = responses.filter((r) => detectThemes(r.comment).includes(stat.theme));
+    const preferred = wanted ? matches.filter((r) => classifyNps(r.npsScore) === wanted) : matches;
+    const pool = preferred.length > 0 ? preferred : matches;
+    const fresh = pool.filter((r) => !usedComments.has(r.comment));
+    const representative = pickRepresentative(fresh.length > 0 ? fresh : pool);
+    usedComments.add(representative.comment);
+    return { stat, representative };
+  });
+  const mixedCategories =
+    [breakdown.promoters, breakdown.passives, breakdown.detractors].filter((count) => count > 0).length > 1;
+
   const lines = [
-    `Síntese de ${breakdown.total} respostas de "${survey.title}".`,
-    `NPS ${breakdown.nps}: ${breakdown.promoters} promotores, ${breakdown.passives} neutros e ${breakdown.detractors} detratores.`,
-    '',
-    'Temas mais citados:',
-    ...themes.map(
-      (t) =>
-        `- ${THEME_LABELS[t.theme]}: ${t.mentions} menções (${t.detractorShare}% de detratores). ` +
-        `Exemplo: "${t.representative.comment}" [#${t.representative.id}]`,
-    ),
+    `## ${FOCUS_TITLE[focus]}`,
+    `Síntese de ${breakdown.total} respostas de "${survey.title}". ` +
+      `NPS ${signedNps(breakdown.nps)}: ${breakdown.promoters} promotores, ` +
+      `${breakdown.passives} neutros e ${breakdown.detractors} detratores.`,
   ];
-  if (themes.length === 0) lines.push('- Nenhum tema recorrente identificado.');
-  const citations = themes.map((t) => ({ responseId: t.representative.id, quote: t.representative.comment }));
+  if (breakdown.total < MIN_RELIABLE_SAMPLE) {
+    lines.push(`Atenção: com ${breakdown.total} respostas a amostra é pequena; trate como indício, não como regra.`);
+  }
+  lines.push('', '## Temas em destaque');
+  for (const { stat, representative } of picked) {
+    lines.push(
+      `- **${THEME_LABELS[stat.theme]}**: ${stat.mentions} menções${mixedCategories ? `, ${stat.detractors} de detratores` : ''}. ` +
+        `Exemplo: “${representative.comment}” [#${representative.id}]`,
+    );
+  }
+  if (picked.length === 0) lines.push('- Nenhum tema recorrente identificado.');
+  if (picked.length > 0) {
+    lines.push('', '## O que fazer a seguir');
+    for (const { stat, representative } of picked.slice(0, 3)) {
+      lines.push(`- ${THEME_ACTIONS[stat.theme]} [#${representative.id}]`);
+    }
+  }
+  const citations = picked.map(({ representative }) => ({
+    responseId: representative.id,
+    quote: representative.comment,
+  }));
   return { text: lines.join('\n'), citations };
 }
 
@@ -116,4 +186,11 @@ export function extractCitations(text: string, sources: readonly SurveyResponse[
     citations.push({ responseId: id, quote: source.comment });
   }
   return citations;
+}
+
+/** "+12", "−8" (typographic minus) or "0". */
+function signedNps(value: number): string {
+  if (value > 0) return `+${value}`;
+  if (value < 0) return `\u2212${Math.abs(value)}`;
+  return '0';
 }
