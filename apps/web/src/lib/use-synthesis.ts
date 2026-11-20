@@ -1,4 +1,10 @@
-import { isAbortError, type Citation, type ResponseFilters, type SynthesisEvent } from '@insighthub/core';
+import {
+  isAbortError,
+  type Citation,
+  type ResponseFilters,
+  type SynthesisEvent,
+  type SynthesisFocus,
+} from '@insighthub/core';
 import { useCallback, useEffect, useReducer, useRef } from 'react';
 import type { DataClient } from '../data';
 
@@ -45,7 +51,12 @@ function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : 'Falha ao gerar a síntese.';
 }
 
-export function useSynthesis(client: DataClient, surveyId: string, filters: ResponseFilters) {
+export function useSynthesis(
+  client: DataClient,
+  surveyId: string,
+  filters: ResponseFilters,
+  focus?: SynthesisFocus,
+) {
   const [state, dispatch] = useReducer(synthesisReducer, INITIAL);
   const controller = useRef<AbortController | null>(null);
 
@@ -61,7 +72,7 @@ export function useSynthesis(client: DataClient, surveyId: string, filters: Resp
     controller.current = current;
     dispatch({ type: 'start' });
     try {
-      for await (const event of client.streamSynthesis(surveyId, filters, current.signal)) {
+      for await (const event of client.streamSynthesis(surveyId, filters, current.signal, focus)) {
         if (current.signal.aborted) return;
         dispatch({ type: 'event', event });
       }
@@ -69,7 +80,7 @@ export function useSynthesis(client: DataClient, surveyId: string, filters: Resp
       if (isAbortError(error) || current.signal.aborted) return;
       dispatch({ type: 'fail', message: messageOf(error) });
     }
-  }, [client, surveyId, filters]);
+  }, [client, surveyId, filters, focus]);
 
   useEffect(() => () => controller.current?.abort(), []);
 

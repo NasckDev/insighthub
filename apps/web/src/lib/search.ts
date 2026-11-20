@@ -7,6 +7,7 @@ import {
   type SegmentDimension,
 } from '@insighthub/core';
 import { z } from 'zod';
+import { RESPONSE_SORTS, type ResponseSort } from '../data/types';
 
 /**
  * Search params of every survey screen. Filters and pagination come straight from the
@@ -17,6 +18,17 @@ const surveySearchSchema = responseFiltersSchema.extend({
   page: paginationSchema.shape.page,
   pageSize: paginationSchema.shape.pageSize,
   dimension: dimensionSchema.default('plan'),
+  sort: z.enum(RESPONSE_SORTS).default('recent'),
+  t: responseFiltersSchema.shape.theme,
+  tpl: z
+    .string()
+    .regex(/^[a-z-]{1,30}$/)
+    .optional(),
+  share: z
+    .string()
+    .max(60_000)
+    .regex(/^[A-Za-z0-9_-]+$/)
+    .optional(),
   r: z
     .string()
     .regex(/^[a-z0-9-]{1,40}$/)
@@ -27,6 +39,13 @@ export interface SurveySearch extends ResponseFilters {
   page?: number;
   pageSize?: number;
   dimension?: SegmentDimension;
+  sort?: ResponseSort;
+  /** Theme selected on the themes map (drill-down). */
+  t?: ResponseFilters['theme'];
+  /** Synthesis question template id. */
+  tpl?: string;
+  /** Shared board token (read-only import). */
+  share?: string;
   /** Id of the response shown in the detail dialog. */
   r?: string;
 }
@@ -34,11 +53,12 @@ export interface SurveySearch extends ResponseFilters {
 const LIST_KEYS = ['plan', 'region', 'role'] as const;
 
 function dropDefaults(parsed: z.output<typeof surveySearchSchema>): SurveySearch {
-  const { page, pageSize, dimension, ...rest } = parsed;
+  const { page, pageSize, dimension, sort, ...rest } = parsed;
   const search: SurveySearch = { ...rest };
   if (page > 1) search.page = page;
   if (pageSize !== DEFAULT_PAGE_SIZE) search.pageSize = pageSize;
   if (dimension !== 'plan') search.dimension = dimension;
+  if (sort !== 'recent') search.sort = sort;
   for (const key of LIST_KEYS) if (search[key]?.length === 0) delete search[key];
   if (!search.q) delete search.q;
   return search;
@@ -94,6 +114,9 @@ export function filtersOf(search: SurveySearch): ResponseFilters {
   if (search.role?.length) filters.role = search.role;
   if (search.nps) filters.nps = search.nps;
   if (search.q) filters.q = search.q;
+  if (search.theme) filters.theme = search.theme;
+  if (search.from) filters.from = search.from;
+  if (search.to) filters.to = search.to;
   return filters;
 }
 
@@ -101,7 +124,24 @@ export function hasActiveFilters(search: SurveySearch): boolean {
   return Object.keys(filtersOf(search)).length > 0;
 }
 
-const SEARCH_KEYS = ['plan', 'region', 'role', 'nps', 'q', 'page', 'pageSize', 'dimension', 'r'] as const;
+const SEARCH_KEYS = [
+  'plan',
+  'region',
+  'role',
+  'nps',
+  'q',
+  'theme',
+  'from',
+  'to',
+  'page',
+  'pageSize',
+  'dimension',
+  'sort',
+  'r',
+  't',
+  'tpl',
+  'share',
+] as const;
 
 /**
  * Router `validateSearch`. TanStack merges the validated object over the raw params, so a key

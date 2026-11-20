@@ -1,7 +1,10 @@
 import {
+  analyzeThemes,
+  computeFacets,
   computeNps,
   filtersToSearchParams,
   isAbortError,
+  pickHighlights,
   withRetry,
   type ResponseFilters,
   type SurveyResponse,
@@ -121,6 +124,16 @@ export function createHttpClient(baseUrl: string, fetchImpl: typeof fetch = fetc
       };
     },
 
+    async getFacets(surveyId, filters, options) {
+      // Facets count against the whole survey, so the unfiltered set is fetched and counted locally.
+      return computeFacets(await allResponses(surveyId, {}, options), filters);
+    },
+
+    async getAnalysis(surveyId, filters, options) {
+      const responses = await allResponses(surveyId, filters, options);
+      return { themes: analyzeThemes(responses), highlights: pickHighlights(responses) };
+    },
+
     async getResponse(surveyId, responseId, options) {
       const body = await request<SurveyResponse>(`/surveys/${surveyId}/responses/${responseId}`, options);
       if (!body.data) throw new DataError('Resposta não encontrada.', 'NOT_FOUND');
@@ -136,13 +149,13 @@ export function createHttpClient(baseUrl: string, fetchImpl: typeof fetch = fetc
       return body.data;
     },
 
-    async *streamSynthesis(surveyId, filters, signal): AsyncGenerator<SynthesisEvent> {
+    async *streamSynthesis(surveyId, filters, signal, focus): AsyncGenerator<SynthesisEvent> {
       let response: Response;
       try {
         response = await fetchImpl(`${root}/api/surveys/${surveyId}/synthesis`, {
           method: 'POST',
           headers: { 'content-type': 'application/json', accept: 'text/event-stream' },
-          body: JSON.stringify({ filters }),
+          body: JSON.stringify({ filters, focus }),
           signal,
         });
       } catch (error: unknown) {

@@ -1,43 +1,26 @@
-import { classifyNps, DEFAULT_PAGE_SIZE, type SurveyResponse } from '@insighthub/core';
+import { DEFAULT_PAGE_SIZE, type SurveyResponse } from '@insighthub/core';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Fragment } from 'react';
 import { useClient } from '../components/app-context';
+import { clearFiltersPatch } from '../components/filter-bar';
+import { Avatar, HighlightText, ScoreBadge, ThemeChips } from '../components/response-bits';
 import { EmptyState, PartialNotice, QueryView } from '../components/states';
+import { RESPONSE_SORTS, type ResponseSort } from '../data';
 import { formatDate, formatNumber } from '../lib/format';
-import { NPS_SINGULAR, PLAN_LABELS, REGION_LABELS, ROLE_LABELS } from '../lib/labels';
+import { PLAN_LABELS, REGION_LABELS, ROLE_LABELS } from '../lib/labels';
+import { personOf } from '../lib/people';
 import { filtersOf, hasActiveFilters } from '../lib/search';
 import { usePatchSearch, useSurveyId, useSurveySearch } from '../lib/use-survey-search';
 
 const PAGE_SIZES = [10, 20, 50] as const;
-const CATEGORY_COLOR = {
-  promoter: 'var(--promoter)',
-  passive: 'var(--passive)',
-  detractor: 'var(--detractor)',
-} as const;
 
-function Highlight({ text, term }: { text: string; term: string | undefined }) {
-  if (!term) return <>{text}</>;
-  const index = text.toLocaleLowerCase('pt-BR').indexOf(term.toLocaleLowerCase('pt-BR'));
-  if (index < 0) return <>{text}</>;
-  return (
-    <>
-      {text.slice(0, index)}
-      <mark className="rounded-sm px-0.5" style={{ background: 'var(--warn-bg)', color: 'var(--warn-fg)' }}>
-        {text.slice(index, index + term.length)}
-      </mark>
-      {text.slice(index + term.length)}
-    </>
-  );
-}
-
-function ScoreCell({ score }: { score: number }) {
-  const category = classifyNps(score);
-  return (
-    <span className="font-semibold" style={{ color: CATEGORY_COLOR[category] }}>
-      {score} <span className="font-normal">· {NPS_SINGULAR[category]}</span>
-    </span>
-  );
-}
+const SORT_LABELS: Record<ResponseSort, string> = {
+  recent: 'Mais recentes',
+  oldest: 'Mais antigas',
+  'score-desc': 'Maior nota',
+  'score-asc': 'Menor nota',
+};
 
 function ResponseRow({
   item,
@@ -48,27 +31,40 @@ function ResponseRow({
   term?: string;
   onOpen: (id: string) => void;
 }) {
+  const person = personOf(item.respondentId);
   return (
     <tr>
       <td>
         <button
           type="button"
-          className="cite"
-          aria-label={`Abrir resposta ${item.id}`}
+          className="flex items-center gap-2.5 border-0 bg-transparent p-0 text-left"
           onClick={() => onOpen(item.id)}
         >
-          {item.id}
+          <Avatar respondentId={item.respondentId} size={34} />
+          <span className="flex flex-col">
+            <span className="text-sm font-semibold leading-tight">
+              <span className="sr-only">Abrir resposta </span>
+              {person.name}
+            </span>
+            <span className="font-mono text-xs text-muted">{item.id}</span>
+          </span>
         </button>
       </td>
-      <td className="whitespace-nowrap">{formatDate(item.submittedAt)}</td>
-      <td>{PLAN_LABELS[item.plan]}</td>
-      <td>{REGION_LABELS[item.region]}</td>
-      <td>{ROLE_LABELS[item.role]}</td>
       <td className="whitespace-nowrap">
-        <ScoreCell score={item.npsScore} />
+        <ScoreBadge score={item.npsScore} />
+        <span className="mt-1 block text-xs text-muted">{formatDate(item.submittedAt)}</span>
       </td>
-      <td className="min-w-72">
-        <Highlight text={item.comment} term={term} />
+      <td className="meta">
+        <span className="font-semibold text-fg">{PLAN_LABELS[item.plan]}</span>
+        <span className="block md:mt-0.5">
+          {REGION_LABELS[item.region]} · {ROLE_LABELS[item.role]}
+        </span>
+      </td>
+      <td className="min-w-0 md:min-w-64">
+        <p className="m-0 mb-1.5">
+          <HighlightText text={item.comment} term={term} />
+        </p>
+        <ThemeChips comment={item.comment} />
       </td>
     </tr>
   );
@@ -82,10 +78,11 @@ export function ResponsesPage() {
   const filters = filtersOf(search);
   const page = search.page ?? 1;
   const pageSize = search.pageSize ?? DEFAULT_PAGE_SIZE;
+  const sort = search.sort ?? 'recent';
 
   const query = useQuery({
-    queryKey: ['responses', surveyId, filters, page, pageSize],
-    queryFn: ({ signal }) => client.listResponses(surveyId, filters, { page, pageSize }, { signal }),
+    queryKey: ['responses', surveyId, filters, page, pageSize, sort],
+    queryFn: ({ signal }) => client.listResponses(surveyId, filters, { page, pageSize, sort }, { signal }),
     placeholderData: keepPreviousData,
   });
 
@@ -93,29 +90,17 @@ export function ResponsesPage() {
     <QueryView
       query={query}
       loadingLabel="Carregando respostas"
-      loadingHeight={320}
+      loadingHeight={420}
       empty={(data) => {
         if (data.total === 0) {
           return (
             <EmptyState
+              illustration="search"
               title="Nenhuma resposta encontrada"
-              description="Nenhuma resposta corresponde aos filtros e à busca atuais."
+              description="Nenhuma resposta corresponde aos filtros e à busca atuais. Tente outro termo ou remova um filtro."
               action={
                 hasActiveFilters(search) ? (
-                  <button
-                    type="button"
-                    className="btn"
-                    onClick={() =>
-                      patch({
-                        plan: undefined,
-                        region: undefined,
-                        role: undefined,
-                        nps: undefined,
-                        q: undefined,
-                        page: undefined,
-                      })
-                    }
-                  >
+                  <button type="button" className="btn" onClick={() => patch(clearFiltersPatch())}>
                     Limpar filtros
                   </button>
                 ) : undefined
@@ -147,43 +132,55 @@ export function ResponsesPage() {
               onRetry={() => void query.refetch()}
             />
           ) : null}
-          <section className="card flex flex-col gap-3 p-0! sm:p-0!" aria-label="Respostas">
-            <p className="m-0 px-4 pt-4 text-sm text-muted" aria-live="polite">
-              {formatNumber(data.total)} respostas · página {data.page} de {data.totalPages}
-            </p>
-            {/* A scrollable region must be focusable so keyboard users can scroll it. */}
-            {/* eslint-disable jsx-a11y/no-noninteractive-tabindex */}
-            <div
-              className="overflow-x-auto"
-              tabIndex={0}
-              role="region"
-              aria-label="Tabela de respostas, role para ver mais colunas"
-            >
-              {/* eslint-enable jsx-a11y/no-noninteractive-tabindex */}
-              <table className="data-table">
-                <caption className="sr-only">Respostas da pesquisa</caption>
-                <thead>
-                  <tr>
-                    <th scope="col">ID</th>
-                    <th scope="col">Data</th>
-                    <th scope="col">Plano</th>
-                    <th scope="col">Região</th>
-                    <th scope="col">Função</th>
-                    <th scope="col">Nota</th>
-                    <th scope="col">Comentário</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.items.map((item) => (
-                    <ResponseRow key={item.id} item={item} term={search.q} onOpen={(r) => patch({ r })} />
-                  ))}
-                </tbody>
-              </table>
+          <section className="flex flex-col gap-3" aria-label="Respostas">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="m-0 text-sm text-muted" aria-live="polite">
+                {formatNumber(data.total)} respostas · página {data.page} de {data.totalPages}
+              </p>
+              {client.kind === 'demo' ? (
+                <div className="flex items-center gap-2">
+                  <label htmlFor="sort" className="text-sm text-muted">
+                    Ordenar por
+                  </label>
+                  <select
+                    id="sort"
+                    className="field"
+                    value={sort}
+                    onChange={(event) => patch({ sort: event.target.value as ResponseSort, page: undefined })}
+                  >
+                    {RESPONSE_SORTS.map((option) => (
+                      <option key={option} value={option}>
+                        {SORT_LABELS[option]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
             </div>
-            <nav
-              aria-label="Paginação"
-              className="flex flex-wrap items-center justify-between gap-3 px-4 pb-4"
-            >
+            <div className="card p-0! md:overflow-hidden sm:p-0! max-md:border-0 max-md:bg-transparent max-md:shadow-none">
+              {/* A scrollable region must be focusable so keyboard users can scroll it. */}
+              {/* eslint-disable jsx-a11y/no-noninteractive-tabindex */}
+              <div className="md:overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela de respostas, role para ver mais colunas">
+                {/* eslint-enable jsx-a11y/no-noninteractive-tabindex */}
+                <table className="data-table rt">
+                  <caption className="sr-only">Respostas da pesquisa</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Respondente</th>
+                      <th scope="col">Nota e data</th>
+                      <th scope="col">Perfil</th>
+                      <th scope="col">Comentário</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.items.map((item) => (
+                      <ResponseRow key={item.id} item={item} term={search.q} onOpen={(r) => patch({ r })} />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <nav aria-label="Paginação" className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <label htmlFor="page-size" className="text-sm text-muted">
                   Por página
@@ -202,12 +199,8 @@ export function ResponsesPage() {
                 </select>
               </div>
               <div className="flex gap-2">
-                <button
-                  type="button"
-                  className="btn"
-                  disabled={data.page <= 1}
-                  onClick={() => patch({ page: data.page - 1 })}
-                >
+                <button type="button" className="btn" disabled={data.page <= 1} onClick={() => patch({ page: data.page - 1 })}>
+                  <ChevronLeft aria-hidden="true" size={16} />
                   Anterior
                 </button>
                 <button
@@ -217,6 +210,7 @@ export function ResponsesPage() {
                   onClick={() => patch({ page: data.page + 1 })}
                 >
                   Próxima
+                  <ChevronRight aria-hidden="true" size={16} />
                 </button>
               </div>
             </nav>

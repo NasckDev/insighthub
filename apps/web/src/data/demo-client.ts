@@ -1,19 +1,29 @@
 import {
   abortableSleep,
+  analyzeThemes,
   compareSegments,
+  computeFacets,
   computeNps,
   createLocalInsightProvider,
   generateSeed,
   matchesFilters,
   paginate,
+  pickHighlights,
   type ResponseFilters,
   type SeedData,
+  type SynthesisFocus,
   type SurveyResponse,
   type SynthesisEvent,
 } from '@insighthub/core';
 import { buildDistribution, buildTimeline } from '../lib/overview';
 import { createFaultController, type FaultController } from './faults';
-import { DataError, type DataClient, type PartialInfo, type RequestOptions } from './types';
+import {
+  DataError,
+  type DataClient,
+  type PartialInfo,
+  type RequestOptions,
+  type ResponseSort,
+} from './types';
 
 export interface DemoClientOptions {
   /** Simulated network latency in ms (0 disables it, used by tests). */
@@ -28,6 +38,13 @@ const DEFAULT_LATENCY_MS = 380;
 const DEFAULT_CHUNK_DELAY_MS = 28;
 const PARTIAL_SHARE = 0.5;
 const INTERRUPT_AFTER_DELTAS = 24;
+
+const SORTERS: Record<ResponseSort, (a: SurveyResponse, b: SurveyResponse) => number> = {
+  recent: (a, b) => b.submittedAt.localeCompare(a.submittedAt) || a.id.localeCompare(b.id),
+  oldest: (a, b) => a.submittedAt.localeCompare(b.submittedAt) || a.id.localeCompare(b.id),
+  'score-desc': (a, b) => b.npsScore - a.npsScore || a.id.localeCompare(b.id),
+  'score-asc': (a, b) => a.npsScore - b.npsScore || a.id.localeCompare(b.id),
+};
 
 export type DemoClient = DataClient & { faults: FaultController };
 
@@ -102,9 +119,25 @@ export function createDemoClient(options: DemoClientOptions = {}): DemoClient {
 
     async listResponses(surveyId, filters, pagination, requestOptions) {
       await simulateNetwork(requestOptions);
-      const page = paginate(responsesOf(surveyId, filters), pagination.page, pagination.pageSize);
+      const sorted = responsesOf(surveyId, filters).sort(SORTERS[pagination.sort ?? 'recent']);
+      const page = paginate(sorted, pagination.page, pagination.pageSize);
       const { items, partial } = partialOf(page.items);
       return { ...page, items, partial };
+    },
+
+    async getFacets(surveyId, filters, requestOptions) {
+      await simulateNetwork(requestOptions);
+      requireSurvey(surveyId);
+      return computeFacets(
+        data.responses.filter((item) => item.surveyId === surveyId),
+        filters,
+      );
+    },
+
+    async getAnalysis(surveyId, filters, requestOptions) {
+      await simulateNetwork(requestOptions);
+      const responses = responsesOf(surveyId, filters);
+      return { themes: analyzeThemes(responses), highlights: pickHighlights(responses) };
     },
 
     async getResponse(surveyId, responseId, requestOptions) {
@@ -122,11 +155,16 @@ export function createDemoClient(options: DemoClientOptions = {}): DemoClient {
       return { dimension, overall: computeNps(responses.map((r) => r.npsScore)), segments: items, partial };
     },
 
-    async *streamSynthesis(surveyId, filters, signal): AsyncGenerator<SynthesisEvent> {
+    async *streamSynthesis(
+      surveyId,
+      filters,
+      signal,
+      focus?: SynthesisFocus,
+    ): AsyncGenerator<SynthesisEvent> {
       await simulateNetwork({ signal });
       const survey = requireSurvey(surveyId);
       const provider = createLocalInsightProvider({ chunkDelayMs });
-      const events = provider.stream({ survey, responses: responsesOf(surveyId, filters) }, signal);
+      const events = provider.stream({ survey, responses: responsesOf(surveyId, filters), focus }, signal);
       const interruptAfter =
         faults.getMode() === 'partial' ? INTERRUPT_AFTER_DELTAS : Number.POSITIVE_INFINITY;
       let deltas = 0;

@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 
 const MARKER_SPLIT = /(\[#[a-z0-9-]{1,40}\])/;
 const MARKER_ID = /^\[#([a-z0-9-]{1,40})\]$/;
+const BOLD_SPLIT = /(\*\*[^*]+\*\*)/;
 
 interface SynthesisTextProps {
   text: string;
@@ -10,19 +11,21 @@ interface SynthesisTextProps {
   onOpenCitation: (responseId: string) => void;
 }
 
-function renderInline(line: string, props: Omit<SynthesisTextProps, 'text'>): ReactNode[] {
-  return line.split(MARKER_SPLIT).map((part, index) => {
+type InlineProps = Omit<SynthesisTextProps, 'text'>;
+
+function renderMarkers(chunk: string, props: InlineProps, keyPrefix: string): ReactNode[] {
+  return chunk.split(MARKER_SPLIT).map((part, index) => {
     const id = MARKER_ID.exec(part)?.[1];
     if (!id) return part;
     if (!props.verifiedIds.has(id))
       return (
-        <span key={index} className="cite-plain">
+        <span key={`${keyPrefix}-${index}`} className="cite-plain">
           {part}
         </span>
       );
     return (
       <button
-        key={index}
+        key={`${keyPrefix}-${index}`}
         type="button"
         className="cite"
         aria-label={`Abrir resposta-fonte ${id}`}
@@ -34,7 +37,17 @@ function renderInline(line: string, props: Omit<SynthesisTextProps, 'text'>): Re
   });
 }
 
-/** Renders the synthesis text: `- ` lines become a list and `[#id]` markers become source buttons. */
+/** `**bold**` and `[#id]` markers; everything else is plain text (never HTML). */
+function renderInline(line: string, props: InlineProps): ReactNode[] {
+  return line.split(BOLD_SPLIT).flatMap<ReactNode>((chunk, index) => {
+    if (chunk.startsWith('**') && chunk.endsWith('**') && chunk.length > 4) {
+      return [<strong key={`b-${index}`}>{renderMarkers(chunk.slice(2, -2), props, `b${index}`)}</strong>];
+    }
+    return renderMarkers(chunk, props, `t${index}`);
+  });
+}
+
+/** Renders the synthesis: `## ` headings, `- ` bullets, bold and `[#id]` markers as source buttons. */
 export function SynthesisText({ text, verifiedIds, onOpenCitation }: SynthesisTextProps) {
   const props = { verifiedIds, onOpenCitation };
   const blocks: ReactNode[] = [];
@@ -45,7 +58,7 @@ export function SynthesisText({ text, verifiedIds, onOpenCitation }: SynthesisTe
     const items = bullets;
     bullets = [];
     blocks.push(
-      <ul key={`ul-${blocks.length}`} className="my-2 flex list-disc flex-col gap-2 pl-5">
+      <ul key={`ul-${blocks.length}`}>
         {items.map((item, index) => (
           <li key={index}>{renderInline(item, props)}</li>
         ))}
@@ -59,14 +72,12 @@ export function SynthesisText({ text, verifiedIds, onOpenCitation }: SynthesisTe
       continue;
     }
     flushBullets();
-    if (line.trim()) {
-      blocks.push(
-        <p key={`p-${blocks.length}`} className="my-2">
-          {renderInline(line, props)}
-        </p>,
-      );
+    if (line.startsWith('## ')) {
+      blocks.push(<h2 key={`h-${blocks.length}`}>{line.slice(3)}</h2>);
+    } else if (line.trim()) {
+      blocks.push(<p key={`p-${blocks.length}`}>{renderInline(line, props)}</p>);
     }
   }
   flushBullets();
-  return <>{blocks}</>;
+  return <div className="prose-synthesis">{blocks}</div>;
 }

@@ -1,67 +1,65 @@
-import { LOW_SAMPLE_THRESHOLD, SEGMENT_DIMENSIONS, type SegmentStat } from '@insighthub/core';
+import {
+  LOW_SAMPLE_THRESHOLD,
+  SEGMENT_DIMENSIONS,
+  withDeltas,
+  type SegmentDelta,
+  type SegmentDimension,
+} from '@insighthub/core';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { TriangleAlert, TrendingDown, TrendingUp } from 'lucide-react';
 import { useClient } from '../components/app-context';
+import { ChartCard } from '../components/charts/chart-card';
+import { DivergingChart, SegmentTable } from '../components/charts/diverging-chart';
+import { Reveal } from '../components/motion';
 import { EmptyState, PartialNotice, QueryView } from '../components/states';
-import { formatNps, formatNumber } from '../lib/format';
+import { formatNps, formatNumber, formatPoints } from '../lib/format';
 import { DIMENSION_LABELS, segmentLabel } from '../lib/labels';
 import { filtersOf } from '../lib/search';
 import { usePatchSearch, useSurveyId, useSurveySearch } from '../lib/use-survey-search';
 
-const NPS_RANGE = 100;
-
-/** Diverging bar centred on zero; the number beside it carries the exact value. */
-function NpsBar({ value }: { value: number }) {
-  const share = (Math.abs(value) / NPS_RANGE) * 50;
-  const color = value >= 0 ? 'var(--promoter-bar)' : 'var(--detractor-bar)';
-  return (
-    <span
-      aria-hidden="true"
-      className="relative block h-3 w-24 rounded-full sm:w-32"
-      style={{ background: 'var(--surface-2)' }}
-    >
-      <span className="absolute inset-y-0 left-1/2 w-px" style={{ background: 'var(--muted)' }} />
-      <span
-        className="absolute inset-y-0 rounded-full"
-        style={{ background: color, width: `${share}%`, left: value >= 0 ? '50%' : `${50 - share}%` }}
-      />
-    </span>
-  );
+function biggestGap(stats: readonly SegmentDelta[]): SegmentDelta | undefined {
+  const reliable = stats.filter((stat) => !stat.lowSample);
+  const pool = reliable.length > 0 ? reliable : stats;
+  return [...pool].sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))[0];
 }
 
-function SegmentRow({
-  stat,
-  dimension,
-}: {
-  stat: SegmentStat;
-  dimension: (typeof SEGMENT_DIMENSIONS)[number];
-}) {
+function SegmentCard({ stat, dimension, index }: { stat: SegmentDelta; dimension: SegmentDimension; index: number }) {
+  const total = stat.promoters + stat.passives + stat.detractors || 1;
+  const parts = [
+    { label: 'Detratores', value: stat.detractors, color: 'var(--detractor-bar)' },
+    { label: 'Neutros', value: stat.passives, color: 'var(--passive-bar)' },
+    { label: 'Promotores', value: stat.promoters, color: 'var(--promoter-bar)' },
+  ];
   return (
-    <tr>
-      <th scope="row" className="whitespace-nowrap font-semibold">
-        {segmentLabel(dimension, stat.segment)}
-      </th>
-      <td className="num">
-        {formatNumber(stat.count)}
-        {stat.lowSample ? (
-          <span
-            className="badge ml-2"
-            style={{ background: 'var(--warn-bg)', color: 'var(--warn-fg)', borderColor: 'var(--warn-line)' }}
-          >
-            Amostra pequena
-          </span>
-        ) : null}
-      </td>
-      <td>
-        <span className="flex items-center justify-end gap-3">
-          <NpsBar value={stat.nps} />
-          <span className="w-10 text-right font-bold tabular-nums">{formatNps(stat.nps)}</span>
-        </span>
-      </td>
-      <td className="num">{stat.promoters}%</td>
-      <td className="num">{stat.passives}%</td>
-      <td className="num">{stat.detractors}%</td>
-      <td className="num">{stat.averageScore.toLocaleString('pt-BR')}</td>
-    </tr>
+    <Reveal index={index}>
+      <article className="card flex h-full flex-col gap-3" aria-label={segmentLabel(dimension, stat.segment)}>
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="display m-0 text-lg">{segmentLabel(dimension, stat.segment)}</h3>
+          {stat.lowSample ? (
+            <span className="badge badge-passive">
+              <TriangleAlert aria-hidden="true" size={12} />
+              Amostra pequena
+            </span>
+          ) : null}
+        </div>
+        <p className="display m-0 text-[44px] tabular-nums leading-none">{formatNps(stat.nps)}</p>
+        <p className="m-0 text-sm" style={{ color: stat.delta >= 0 ? 'var(--promoter)' : 'var(--detractor)' }}>
+          {formatPoints(stat.delta)} em relação ao geral
+        </p>
+        <div
+          className="flex h-2.5 overflow-hidden rounded-full bg-surface-2"
+          role="img"
+          aria-label={`Detratores ${stat.detractors}%, neutros ${stat.passives}%, promotores ${stat.promoters}%`}
+        >
+          {parts.map((part) => (
+            <span key={part.label} style={{ width: `${(part.value / total) * 100}%`, background: part.color }} />
+          ))}
+        </div>
+        <p className="m-0 text-xs text-muted">
+          {formatNumber(stat.count)} respostas · nota média {stat.averageScore.toLocaleString('pt-BR')}
+        </p>
+      </article>
+    </Reveal>
   );
 }
 
@@ -80,37 +78,37 @@ export function ComparePage() {
   });
 
   return (
-    <div className="flex flex-col gap-4">
-      <div role="group" aria-label="Comparar por" className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-col gap-5">
+      <div role="group" aria-label="Comparar por" className="flex flex-wrap items-center gap-3">
         <span className="text-sm font-semibold text-muted">Comparar por</span>
-        {SEGMENT_DIMENSIONS.map((option) => (
-          <button
-            key={option}
-            type="button"
-            className={`btn btn-sm ${option === dimension ? 'btn-primary' : ''}`}
-            aria-pressed={option === dimension}
-            onClick={() => patch({ dimension: option === 'plan' ? undefined : option })}
-          >
-            {DIMENSION_LABELS[option]}
-          </button>
-        ))}
+        <div className="seg">
+          {SEGMENT_DIMENSIONS.map((option) => (
+            <button
+              key={option}
+              type="button"
+              aria-pressed={option === dimension}
+              onClick={() => patch({ dimension: option === 'plan' ? undefined : option })}
+            >
+              {DIMENSION_LABELS[option]}
+            </button>
+          ))}
+        </div>
       </div>
 
       <QueryView
         query={query}
         loadingLabel="Carregando comparação"
-        loadingHeight={280}
+        loadingHeight={380}
         empty={(data) =>
           data.segments.length === 0 ? (
-            <EmptyState
-              title="Nada para comparar"
-              description="Nenhuma resposta corresponde aos filtros atuais."
-            />
+            <EmptyState illustration="chart" title="Nada para comparar" description="Nenhuma resposta corresponde aos filtros atuais." />
           ) : null
         }
       >
         {(data) => {
-          const small = data.segments.filter((segment) => segment.lowSample);
+          const stats = withDeltas(data.segments, data.overall.nps);
+          const small = stats.filter((segment) => segment.lowSample);
+          const gap = biggestGap(stats);
           return (
             <>
               {data.partial ? (
@@ -119,59 +117,53 @@ export function ComparePage() {
                   onRetry={() => void query.refetch()}
                 />
               ) : null}
+
+              {gap && stats.length > 1 ? (
+                <section className="card flex items-center gap-4" aria-label="Maior diferença">
+                  <span
+                    className="grid h-12 w-12 shrink-0 place-items-center rounded-full"
+                    style={{ background: gap.delta >= 0 ? 'var(--primary-soft)' : 'var(--accent-soft)', color: gap.delta >= 0 ? 'var(--promoter)' : 'var(--detractor)' }}
+                  >
+                    {gap.delta >= 0 ? <TrendingUp aria-hidden="true" size={24} /> : <TrendingDown aria-hidden="true" size={24} />}
+                  </span>
+                  <p className="m-0 text-base">
+                    <strong>{segmentLabel(dimension, gap.segment)}</strong> é o segmento que mais se afasta do NPS geral (
+                    <strong className="tabular-nums">{formatNps(data.overall.nps)}</strong>):{' '}
+                    <strong className="tabular-nums" style={{ color: gap.delta >= 0 ? 'var(--promoter)' : 'var(--detractor)' }}>
+                      {formatPoints(gap.delta)}
+                    </strong>
+                    , com {formatNumber(gap.count)} respostas.
+                  </p>
+                </section>
+              ) : null}
+
               {small.length > 0 ? (
                 <div
                   role="note"
-                  className="rounded-xl border p-3 text-sm"
-                  style={{
-                    background: 'var(--warn-bg)',
-                    color: 'var(--warn-fg)',
-                    borderColor: 'var(--warn-line)',
-                  }}
+                  className="flex items-start gap-3 rounded-xl border p-4 text-sm"
+                  style={{ background: 'var(--warn-bg)', color: 'var(--warn-fg)', borderColor: 'var(--warn-line)' }}
                 >
-                  <strong>Cuidado com amostras pequenas.</strong>{' '}
-                  {small.length === 1 ? 'Um segmento tem' : `${small.length} segmentos têm`} menos de{' '}
-                  {LOW_SAMPLE_THRESHOLD} respostas (
-                  {small.map((segment) => segmentLabel(dimension, segment.segment)).join(', ')}). Com tão
-                  poucos dados, o NPS varia muito e não sustenta conclusões.
+                  <TriangleAlert aria-hidden="true" size={20} className="mt-0.5 shrink-0" />
+                  <p className="m-0">
+                    <strong>Cuidado com amostras pequenas.</strong>{' '}
+                    {small.length === 1 ? 'Um segmento tem' : `${small.length} segmentos têm`} menos de {LOW_SAMPLE_THRESHOLD}{' '}
+                    respostas ({small.map((segment) => segmentLabel(dimension, segment.segment)).join(', ')}). Com tão poucos
+                    dados, o NPS varia muito e não sustenta conclusões. Estes segmentos aparecem listrados.
+                  </p>
                 </div>
               ) : null}
-              <section className="card overflow-x-auto p-0! sm:p-0!" aria-label="Comparação de segmentos">
-                <table className="data-table">
-                  <caption className="px-4 pt-4 pb-2 text-sm text-muted">
-                    NPS geral dos dados filtrados:{' '}
-                    <strong className="text-fg">{formatNps(data.overall.nps)}</strong> em{' '}
-                    {formatNumber(data.overall.total)} respostas. Ordenado do maior para o menor NPS.
-                  </caption>
-                  <thead>
-                    <tr>
-                      <th scope="col">{DIMENSION_LABELS[dimension]}</th>
-                      <th scope="col" className="num">
-                        Respostas
-                      </th>
-                      <th scope="col" className="num">
-                        NPS
-                      </th>
-                      <th scope="col" className="num">
-                        Promotores
-                      </th>
-                      <th scope="col" className="num">
-                        Neutros
-                      </th>
-                      <th scope="col" className="num">
-                        Detratores
-                      </th>
-                      <th scope="col" className="num">
-                        Nota média
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.segments.map((stat) => (
-                      <SegmentRow key={stat.segment} stat={stat} dimension={dimension} />
-                    ))}
-                  </tbody>
-                </table>
+
+              <ChartCard
+                title={`NPS por ${DIMENSION_LABELS[dimension].toLowerCase()}, comparado ao geral`}
+                description={`Geral: ${formatNps(data.overall.nps)} em ${formatNumber(data.overall.total)} respostas. Barras para a direita estão acima da média.`}
+                chart={<DivergingChart stats={stats} dimension={dimension} overallNps={data.overall.nps} />}
+                table={<SegmentTable stats={stats} dimension={dimension} />}
+              />
+
+              <section aria-label="Segmentos lado a lado" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {stats.map((stat, index) => (
+                  <SegmentCard key={stat.segment} stat={stat} dimension={dimension} index={index} />
+                ))}
               </section>
             </>
           );

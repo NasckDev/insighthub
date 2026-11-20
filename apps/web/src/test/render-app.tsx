@@ -2,6 +2,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider } from '@tanstack/react-router';
 import { render } from '@testing-library/react';
 import { ClientProvider } from '../components/app-context';
+import { MotionRoot } from '../components/motion';
+import { ToastProvider } from '../components/toast';
 import { createDemoClient, type DemoClientOptions } from '../data';
 import { createAppRouter, createMemoryHistory } from '../router';
 
@@ -13,7 +15,11 @@ export function renderApp(path: string, options: DemoClientOptions = {}) {
   const view = render(
     <ClientProvider client={client}>
       <QueryClientProvider client={queryClient}>
-        <RouterProvider router={router} />
+        <MotionRoot>
+          <ToastProvider>
+            <RouterProvider router={router} />
+          </ToastProvider>
+        </MotionRoot>
       </QueryClientProvider>
     </ClientProvider>,
   );

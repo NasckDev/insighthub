@@ -1,54 +1,14 @@
-import {
-  NPS_CATEGORIES,
-  PLANS,
-  REGIONS,
-  ROLES,
-  MAX_SEARCH_LENGTH,
-  type NpsCategory,
-  type Plan,
-  type Region,
-  type Role,
-} from '@insighthub/core';
-import { useEffect, useId, useRef, useState } from 'react';
-import { NPS_LABELS, NPS_SINGULAR, PLAN_LABELS, REGION_LABELS, ROLE_LABELS } from '../lib/labels';
+import { MAX_SEARCH_LENGTH, THEME_LABELS } from '@insighthub/core';
+import { Search, SlidersHorizontal, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { formatDate } from '../lib/format';
+import { NPS_SINGULAR, PLAN_LABELS, REGION_LABELS, ROLE_LABELS } from '../lib/labels';
 import { hasActiveFilters, type SurveySearch } from '../lib/search';
 import { usePatchSearch, useSurveySearch } from '../lib/use-survey-search';
+import { FacetPanel, toggled } from './facet-panel';
+import { Modal } from './modal';
 
 const SEARCH_DEBOUNCE_MS = 300;
-function toggled<T extends string>(list: readonly T[] | undefined, value: T): T[] | undefined {
-  const current = list ?? [];
-  const next = current.includes(value) ? current.filter((item) => item !== value) : [...current, value];
-  return next.length > 0 ? next : undefined;
-}
-
-interface CheckGroupProps<T extends string> {
-  legend: string;
-  options: readonly T[];
-  labels: Record<T, string>;
-  selected: readonly T[] | undefined;
-  onToggle: (value: T) => void;
-}
-
-function CheckGroup<T extends string>({ legend, options, labels, selected, onToggle }: CheckGroupProps<T>) {
-  return (
-    <fieldset className="m-0 min-w-0 border-0 p-0">
-      <legend className="label">{legend}</legend>
-      <div className="flex flex-wrap gap-x-4 gap-y-1">
-        {options.map((option) => (
-          <label key={option} className="flex min-h-8 cursor-pointer items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              className="h-4 w-4"
-              checked={selected?.includes(option) ?? false}
-              onChange={() => onToggle(option)}
-            />
-            {labels[option]}
-          </label>
-        ))}
-      </div>
-    </fieldset>
-  );
-}
 
 interface ActiveChip {
   key: string;
@@ -59,28 +19,25 @@ interface ActiveChip {
 function activeChips(search: SurveySearch): ActiveChip[] {
   const chips: ActiveChip[] = [];
   for (const plan of search.plan ?? []) {
-    chips.push({
-      key: `plan-${plan}`,
-      text: `Plano: ${PLAN_LABELS[plan]}`,
-      remove: { plan: toggled(search.plan, plan) },
-    });
+    chips.push({ key: `plan-${plan}`, text: `Plano: ${PLAN_LABELS[plan]}`, remove: { plan: toggled(search.plan, plan) } });
   }
   for (const region of search.region ?? []) {
-    chips.push({
-      key: `region-${region}`,
-      text: `Região: ${REGION_LABELS[region]}`,
-      remove: { region: toggled(search.region, region) },
-    });
+    chips.push({ key: `region-${region}`, text: `Região: ${REGION_LABELS[region]}`, remove: { region: toggled(search.region, region) } });
   }
   for (const role of search.role ?? []) {
-    chips.push({
-      key: `role-${role}`,
-      text: `Função: ${ROLE_LABELS[role]}`,
-      remove: { role: toggled(search.role, role) },
-    });
+    chips.push({ key: `role-${role}`, text: `Função: ${ROLE_LABELS[role]}`, remove: { role: toggled(search.role, role) } });
   }
-  if (search.nps)
-    chips.push({ key: 'nps', text: `NPS: ${NPS_SINGULAR[search.nps]}`, remove: { nps: undefined } });
+  if (search.nps) chips.push({ key: 'nps', text: `NPS: ${NPS_SINGULAR[search.nps]}`, remove: { nps: undefined } });
+  if (search.theme) chips.push({ key: 'theme', text: `Tema: ${THEME_LABELS[search.theme]}`, remove: { theme: undefined } });
+  if (search.from || search.to) {
+    const text =
+      search.from && search.to
+        ? `${formatDate(search.from)} a ${formatDate(search.to)}`
+        : search.from
+          ? `desde ${formatDate(search.from)}`
+          : `até ${formatDate(search.to as string)}`;
+    chips.push({ key: 'period', text: `Período: ${text}`, remove: { from: undefined, to: undefined } });
+  }
   if (search.q) chips.push({ key: 'q', text: `Busca: “${search.q}”`, remove: { q: undefined } });
   return chips;
 }
@@ -91,28 +48,33 @@ const RESET: Partial<SurveySearch> = {
   role: undefined,
   nps: undefined,
   q: undefined,
+  theme: undefined,
+  from: undefined,
+  to: undefined,
   page: undefined,
 };
 
-export function FilterBar() {
+export function clearFiltersPatch(): Partial<SurveySearch> {
+  return RESET;
+}
+
+interface FilterBarProps {
+  /** When the facets are already on screen (desktop responses page) the button is not needed. */
+  facetsVisible?: boolean;
+}
+
+export function FilterBar({ facetsVisible = false }: FilterBarProps) {
   const search = useSurveySearch();
   const patch = usePatchSearch();
   const [open, setOpen] = useState(false);
   const [resetCount, setResetCount] = useState(0);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const panelId = useId();
-  const searchId = useId();
   const chips = activeChips(search);
 
   useEffect(() => () => clearTimeout(timer.current), []);
 
   function apply(change: Partial<SurveySearch>) {
     patch({ ...change, page: undefined });
-  }
-
-  function handleSearchInput(value: string) {
-    clearTimeout(timer.current);
-    timer.current = setTimeout(() => apply({ q: value.trim() || undefined }), SEARCH_DEBOUNCE_MS);
   }
 
   function clearAll() {
@@ -122,21 +84,30 @@ export function FilterBar() {
   }
 
   return (
-    <section aria-label="Filtros" className="card flex flex-col gap-3">
+    <section aria-label="Filtros" className="flex flex-col gap-2">
       <div className="flex items-end gap-2">
-        <div className="min-w-0 flex-1">
-          <label htmlFor={searchId} className="label">
+        <div className="relative min-w-0 flex-1">
+          <label htmlFor="busca-global" className="sr-only">
             Buscar nos comentários
           </label>
+          <Search
+            aria-hidden="true"
+            size={17}
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted"
+          />
           <input
             key={resetCount}
-            id={searchId}
+            id="busca-global"
             type="search"
-            className="field w-full"
+            className="field w-full pl-10"
             maxLength={MAX_SEARCH_LENGTH}
             defaultValue={search.q ?? ''}
-            placeholder="ex.: suporte, lento, preço"
-            onChange={(event) => handleSearchInput(event.target.value)}
+            placeholder="Buscar nos comentários: suporte, lento, preço"
+            onChange={(event) => {
+              clearTimeout(timer.current);
+              const value = event.target.value;
+              timer.current = setTimeout(() => apply({ q: value.trim() || undefined }), SEARCH_DEBOUNCE_MS);
+            }}
             onKeyDown={(event) => {
               if (event.key === 'Enter') {
                 clearTimeout(timer.current);
@@ -147,60 +118,13 @@ export function FilterBar() {
         </div>
         <button
           type="button"
-          className="btn"
-          aria-expanded={open}
-          aria-controls={panelId}
-          onClick={() => setOpen((value) => !value)}
+          className={`btn ${facetsVisible ? 'lg:hidden' : ''}`}
+          aria-haspopup="dialog"
+          onClick={() => setOpen(true)}
         >
+          <SlidersHorizontal aria-hidden="true" size={16} />
           Filtros{chips.length > 0 ? ` (${chips.length})` : ''}
-          <span aria-hidden="true">{open ? '▴' : '▾'}</span>
         </button>
-      </div>
-
-      <div
-        id={panelId}
-        hidden={!open}
-        className="grid gap-4 border-t border-line pt-3 sm:grid-cols-2 lg:grid-cols-4"
-      >
-        <CheckGroup<Plan>
-          legend="Plano"
-          options={PLANS}
-          labels={PLAN_LABELS}
-          selected={search.plan}
-          onToggle={(value) => apply({ plan: toggled(search.plan, value) })}
-        />
-        <CheckGroup<Region>
-          legend="Região"
-          options={REGIONS}
-          labels={REGION_LABELS}
-          selected={search.region}
-          onToggle={(value) => apply({ region: toggled(search.region, value) })}
-        />
-        <CheckGroup<Role>
-          legend="Função"
-          options={ROLES}
-          labels={ROLE_LABELS}
-          selected={search.role}
-          onToggle={(value) => apply({ role: toggled(search.role, value) })}
-        />
-        <div>
-          <label htmlFor={`${panelId}-nps`} className="label">
-            Categoria NPS
-          </label>
-          <select
-            id={`${panelId}-nps`}
-            className="field w-full"
-            value={search.nps ?? ''}
-            onChange={(event) => apply({ nps: (event.target.value || undefined) as NpsCategory | undefined })}
-          >
-            <option value="">Todas</option>
-            {NPS_CATEGORIES.map((category) => (
-              <option key={category} value={category}>
-                {NPS_LABELS[category]}
-              </option>
-            ))}
-          </select>
-        </div>
       </div>
 
       {chips.length > 0 ? (
@@ -210,7 +134,7 @@ export function FilterBar() {
               <li key={chip.key}>
                 <button
                   type="button"
-                  className="badge cursor-pointer"
+                  className="badge cursor-pointer bg-primary-soft hover:border-primary"
                   aria-label={`Remover filtro ${chip.text}`}
                   onClick={() => {
                     if (chip.key === 'q') setResetCount((count) => count + 1);
@@ -218,17 +142,33 @@ export function FilterBar() {
                   }}
                 >
                   {chip.text}
-                  <span aria-hidden="true">×</span>
+                  <X aria-hidden="true" size={13} />
                 </button>
               </li>
             ))}
           </ul>
           {hasActiveFilters(search) ? (
-            <button type="button" className="btn btn-sm" onClick={clearAll}>
+            <button type="button" className="btn btn-sm btn-ghost" onClick={clearAll}>
               Limpar filtros
             </button>
           ) : null}
         </div>
+      ) : null}
+
+      {open ? (
+        <Modal title="Filtros" onClose={() => setOpen(false)} variant="sheet">
+          <FacetPanel />
+          <div className="mt-5 flex gap-2">
+            <button type="button" className="btn btn-primary flex-1" onClick={() => setOpen(false)}>
+              Ver resultados
+            </button>
+            {hasActiveFilters(search) ? (
+              <button type="button" className="btn" onClick={clearAll}>
+                Limpar
+              </button>
+            ) : null}
+          </div>
+        </Modal>
       ) : null}
     </section>
   );

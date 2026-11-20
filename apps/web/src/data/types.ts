@@ -1,4 +1,6 @@
 import type {
+  Facets,
+  Highlight,
   NpsBreakdown,
   Page,
   ResponseFilters,
@@ -8,6 +10,8 @@ import type {
   SurveyResponse,
   SurveySummary,
   SynthesisEvent,
+  SynthesisFocus,
+  ThemeStat,
 } from '@insighthub/core';
 import type { DistributionBin, TimelinePoint } from '../lib/overview';
 
@@ -37,6 +41,21 @@ export interface CompareData {
   partial?: PartialInfo;
 }
 
+export const RESPONSE_SORTS = ['recent', 'oldest', 'score-desc', 'score-asc'] as const;
+export type ResponseSort = (typeof RESPONSE_SORTS)[number];
+
+export interface ResponsePagination {
+  page: number;
+  pageSize: number;
+  /** Honored by the demo adapter only; the API has no sort parameter. */
+  sort?: ResponseSort;
+}
+
+export interface AnalysisData {
+  themes: ThemeStat[];
+  highlights: Highlight[];
+}
+
 export interface DataClient {
   /** `demo` runs the core in the browser; `http` talks to apps/api. */
   readonly kind: 'demo' | 'http';
@@ -47,9 +66,11 @@ export interface DataClient {
   listResponses(
     surveyId: string,
     filters: ResponseFilters,
-    pagination: { page: number; pageSize: number },
+    pagination: ResponsePagination,
     options?: RequestOptions,
   ): Promise<ResponsesPage>;
+  getFacets(surveyId: string, filters: ResponseFilters, options?: RequestOptions): Promise<Facets>;
+  getAnalysis(surveyId: string, filters: ResponseFilters, options?: RequestOptions): Promise<AnalysisData>;
   getResponse(surveyId: string, responseId: string, options?: RequestOptions): Promise<SurveyResponse>;
   compare(
     surveyId: string,
@@ -61,6 +82,7 @@ export interface DataClient {
     surveyId: string,
     filters: ResponseFilters,
     signal: AbortSignal,
+    focus?: SynthesisFocus,
   ): AsyncGenerator<SynthesisEvent>;
 }
 

@@ -43,7 +43,8 @@ describe('filters in the URL', () => {
     const { router } = renderApp(`${SURVEY}/respostas?plan=pro&page=2`);
     await screen.findByRole('table', { name: TABLE_NAME });
     await user.click(screen.getByRole('button', { name: /^Filtros/ }));
-    await user.click(screen.getByRole('checkbox', { name: 'Enterprise' }));
+    const panel = await screen.findByRole('dialog', { name: 'Filtros' });
+    await user.click(within(panel).getByRole('checkbox', { name: /^Enterprise/ }));
     await waitFor(() => expect(searchOf(router)).toEqual({ plan: ['pro', 'enterprise'] }));
     expect(screen.getByRole('button', { name: 'Remover filtro Plano: Enterprise' })).toBeInTheDocument();
   });
@@ -84,13 +85,14 @@ describe('screen states', () => {
 
   it('shows an error and recovers with "Tentar de novo"', async () => {
     const user = userEvent.setup();
-    const { client } = renderApp(`${SURVEY}/visao-geral`);
-    await screen.findByText('NPS');
+    const { client } = renderApp(`${SURVEY}/comparar`);
+    await screen.findByRole('list', { name: /NPS por plano/ });
+    // Only the comparison query runs when the dimension changes, so the simulated failure hits it.
     client.faults.setMode('fail-next');
-    await user.click(screen.getByRole('link', { name: 'Respostas' }));
+    await user.click(screen.getByRole('button', { name: 'Região' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Falha simulada');
     await user.click(screen.getByRole('button', { name: 'Tentar de novo' }));
-    expect(await screen.findByRole('table', { name: TABLE_NAME })).toBeInTheDocument();
+    expect(await screen.findByRole('list', { name: /NPS por região/ })).toBeInTheDocument();
   });
 
   it('shows a partial result on the responses table', async () => {
@@ -114,7 +116,8 @@ describe('screen states', () => {
     const user = userEvent.setup();
     renderApp(`${SURVEY}/visao-geral`);
     await screen.findByRole('img', { name: /Distribuição das 640 notas/ });
-    await user.click(screen.getAllByRole('button', { name: 'Tabela' })[0] as HTMLElement);
+    const group = screen.getByRole('group', { name: 'Formato de Distribuição das notas' });
+    await user.click(within(group).getByRole('button', { name: 'Tabela' }));
     expect(screen.getByRole('table', { name: 'Quantidade de respostas por nota' })).toBeInTheDocument();
   });
 

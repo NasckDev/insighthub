@@ -29,7 +29,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['apps/web/scripts/**/*.mjs', 'eslint.config.js'],
+    files: ['apps/web/scripts/**/*.mjs', 'apps/web/playwright.config.ts', 'eslint.config.js'],
     languageOptions: { globals: globals.node },
   },
 );

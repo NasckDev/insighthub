@@ -3,25 +3,32 @@ import {
   createMemoryHistory,
   createRootRoute,
   createRoute,
+  lazyRouteComponent,
   createRouter,
   redirect,
   type RouterHistory,
 } from '@tanstack/react-router';
 import { AppShell } from './components/app-shell';
-import { EmptyState } from './components/states';
+import { EmptyState, LoadingBlock } from './components/states';
 import { parseSearchString, stringifySearchObject, validateSurveySearch } from './lib/search';
-import { ComparePage } from './routes/compare-page';
-import { OverviewPage } from './routes/overview-page';
-import { ResponsesPage } from './routes/responses-page';
 import { SurveyLayout } from './routes/survey-layout';
-import { SynthesisPage } from './routes/synthesis-page';
 
-export const DEFAULT_SURVEY_ID = 's-atlas-q3';
+import { DEFAULT_SURVEY_ID } from './lib/constants';
+
+export { DEFAULT_SURVEY_ID };
+
+function RoutePending() {
+  return <LoadingBlock label="Carregando tela" height={240} />;
+}
 
 const rootRoute = createRootRoute({
   component: AppShell,
   notFoundComponent: () => (
-    <EmptyState title="Página não encontrada" description="Use o menu para voltar a uma tela existente." />
+    <EmptyState
+      title="Página não encontrada"
+      description="Use o menu para voltar a uma tela existente."
+      illustration="search"
+    />
   ),
 });
 
@@ -51,27 +58,45 @@ const surveyIndexRoute = createRoute({
 const overviewRoute = createRoute({
   getParentRoute: () => surveyRoute,
   path: 'visao-geral',
-  component: OverviewPage,
+  component: lazyRouteComponent(() => import('./routes/overview-page'), 'OverviewPage'),
 });
 const responsesRoute = createRoute({
   getParentRoute: () => surveyRoute,
   path: 'respostas',
-  component: ResponsesPage,
+  component: lazyRouteComponent(() => import('./routes/responses-page'), 'ResponsesPage'),
 });
 const compareRoute = createRoute({
   getParentRoute: () => surveyRoute,
   path: 'comparar',
-  component: ComparePage,
+  component: lazyRouteComponent(() => import('./routes/compare-page'), 'ComparePage'),
 });
 const synthesisRoute = createRoute({
   getParentRoute: () => surveyRoute,
   path: 'sintese',
-  component: SynthesisPage,
+  component: lazyRouteComponent(() => import('./routes/synthesis-page'), 'SynthesisPage'),
+});
+const themesRoute = createRoute({
+  getParentRoute: () => surveyRoute,
+  path: 'temas',
+  component: lazyRouteComponent(() => import('./routes/themes-page'), 'ThemesPage'),
+});
+const boardRoute = createRoute({
+  getParentRoute: () => surveyRoute,
+  path: 'quadro',
+  component: lazyRouteComponent(() => import('./routes/board-page'), 'BoardPage'),
 });
 
 const routeTree = rootRoute.addChildren([
   homeRoute,
-  surveyRoute.addChildren([surveyIndexRoute, overviewRoute, responsesRoute, compareRoute, synthesisRoute]),
+  surveyRoute.addChildren([
+    surveyIndexRoute,
+    overviewRoute,
+    responsesRoute,
+    themesRoute,
+    compareRoute,
+    synthesisRoute,
+    boardRoute,
+  ]),
 ]);
 
 /**
@@ -87,6 +112,8 @@ export function createAppRouter(history: RouterHistory = createHashHistory()) {
     parseSearch: parseSearchString,
     stringifySearch: stringifySearchObject,
     defaultPreload: false,
+    defaultPendingMs: 0,
+    defaultPendingComponent: RoutePending,
   });
 }
 
