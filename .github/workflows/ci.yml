@@ -26,6 +26,8 @@ jobs:
         run: npm test
       - name: Build (portable web bundle)
         run: npm run build:portable
+      - name: Build Storybook
+        run: npm run build-storybook
 
   e2e:
     runs-on: ubuntu-latest

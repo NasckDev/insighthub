@@ -1,18 +1,41 @@
 import { Link, Outlet, useNavigate, useParams, useRouterState } from '@tanstack/react-router';
-import { Command, Compass, Ellipsis, Keyboard, Plug, Search } from 'lucide-react';
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useFaultMode, type FaultController, type FaultMode } from '../data';
 import { DEFAULT_SURVEY_ID } from '../lib/constants';
 import { GO_TARGETS, isTypingTarget, type GoKey } from '../lib/shortcuts';
-import { useFaultMode, type FaultController, type FaultMode } from '../data';
+import { tour } from '../lib/tour-store';
+import {
+  ApiOutlined,
+  AppAvatar,
+  AppButton,
+  AppDrawer,
+  AppDropdown,
+  AppIconButton,
+  AppKbd,
+  AppLayout,
+  AppLayoutBody,
+  AppLayoutContent,
+  AppLayoutHeader,
+  AppMenu,
+  AppSelect,
+  AppSider,
+  AppStack,
+  CompassOutlined,
+  MenuOutlined,
+  MoonOutlined,
+  QuestionCircleOutlined,
+  SearchOutlined,
+  SunOutlined,
+  UserOutlined,
+  applyNextTheme,
+  useIsDesktop,
+  useThemeMode,
+} from '../ui';
 import { useClient } from './app-context';
 import { useConnection } from './connection';
 import { Logo, LogoMark } from './logo';
-import { Modal } from './modal';
-import { PageTransition } from './motion';
 import { NAV_ITEMS, PAGE_TITLES, type NavItem } from './nav-items';
-import { applyNextTheme, ThemeToggle } from './theme-toggle';
 import { Tour } from './tour';
-import { tour } from '../lib/tour-store';
 
 // Opened on demand, so they stay out of the first-paint bundle.
 const CommandPalette = lazy(() => import('./command-palette').then((m) => ({ default: m.CommandPalette })));
@@ -30,21 +53,10 @@ const MOBILE_PRIMARY: readonly NavItem['slug'][] = ['visao-geral', 'respostas', 
 function FaultSimulator({ controller }: { controller: FaultController }) {
   const mode = useFaultMode(controller);
   return (
-    <label className="flex items-center gap-2 text-xs">
-      <span>Simular</span>
-      <select
-        className="sim-select rounded-md border px-2 py-0.5 text-xs"
-        style={{ background: 'transparent', color: 'inherit', borderColor: 'currentColor' }}
-        value={mode}
-        onChange={(event) => controller.setMode(event.target.value as FaultMode)}
-      >
-        {FAULT_OPTIONS.map((option) => (
-          <option key={option.value} value={option.value} style={{ color: '#1b1b3a' }}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </label>
+    <span className="ih-row ih-gap-2 ih-nowrap">
+      <span id="simular-label">Simular</span>
+      <AppSelect<FaultMode> size="sm" aria-labelledby="simular-label" value={mode} options={FAULT_OPTIONS} onChange={(value) => controller.setMode(value)} popupMatchSelectWidth={false} />
+    </span>
   );
 }
 
@@ -64,17 +76,20 @@ export function AppShell() {
   const faults = 'faults' in client ? (client.faults as FaultController) : null;
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
-  const [moreOpen, setMoreOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const connection = useConnection();
+  const desktop = useIsDesktop();
+  const mode = useThemeMode();
   const chord = useRef<{ key: string; at: number } | null>(null);
 
   const closePalette = useCallback(() => setPaletteOpen(false), []);
   const showShortcuts = useCallback(() => setHelpOpen(true), []);
   const startTour = useCallback(() => tour.start(), []);
-  const section = pathname.split('/').pop() ?? '';
+  const section = (pathname.split('/').pop() ?? '') as NavItem['slug'];
 
   useEffect(() => {
-    const title = PAGE_TITLES[section as NavItem['slug']];
+    const title = PAGE_TITLES[section];
     document.title = title ? `${title} · InsightHub` : 'InsightHub';
     // Move focus to the content after a navigation so keyboard and screen reader users land on the new screen.
     if (firstRender.current) {
@@ -119,26 +134,29 @@ export function AppShell() {
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [navigate, surveyId]);
 
-  const navLink = (item: NavItem, className: string, activeClass: string, children: React.ReactNode) => (
-    <Link
-      key={item.slug}
-      to={item.to}
-      params={{ surveyId }}
-      search={carryFilters}
-      className={className}
-      activeProps={{ className: activeClass }}
-      onClick={() => setMoreOpen(false)}
-    >
-      {children}
+  const navLabel = (item: NavItem, withKey: boolean): ReactNode => (
+    <Link to={item.to} params={{ surveyId }} search={carryFilters} onClick={() => setMenuOpen(false)} aria-current={section === item.slug ? 'page' : undefined}>
+      {item.label}
+      {withKey ? (
+        <span aria-hidden="true" className="ih-menu-key">
+          G {item.go}
+        </span>
+      ) : null}
     </Link>
   );
+  const menuItems = (withKey: boolean) => NAV_ITEMS.map((item) => ({ key: item.slug, icon: item.icon, label: navLabel(item, withKey) }));
 
-  const secondary = NAV_ITEMS.filter((item) => !MOBILE_PRIMARY.includes(item.slug));
+  const connectLabel = connection.mode === 'http' ? 'API conectada' : 'Conectar à API';
+  const accountItems = [
+    { key: 'connect', label: connectLabel, icon: <ApiOutlined />, onClick: connection.openDialog },
+    { key: 'shortcuts', label: 'Atalhos de teclado', icon: <QuestionCircleOutlined />, onClick: () => setHelpOpen(true) },
+    { key: 'tour', label: 'Rever o tour', icon: <CompassOutlined />, onClick: startTour },
+  ];
 
   return (
-    <>
+    <AppLayout hasSider={desktop}>
       <a
-        className="skip-link"
+        className="ih-skip-link"
         href="#conteudo"
         onClick={(event) => {
           event.preventDefault();
@@ -147,175 +165,123 @@ export function AppShell() {
       >
         Pular para o conteúdo
       </a>
-      {client.kind === 'demo' ? (
-        <div
-          role="region"
-          aria-label="Aviso de demonstração"
-          className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-1 text-xs lg:pl-[272px]"
-          style={{ background: 'var(--banner-bg)', color: 'var(--banner-fg)' }}
-        >
-          <span>
-            <strong>Demo com dados fictícios</strong>
-            <span className="max-sm:sr-only"> · produto inventado “Atlas Analytics”, tudo roda no seu navegador</span>
-          </span>
-          {faults ? <FaultSimulator controller={faults} /> : null}
-        </div>
+
+      {desktop ? (
+        <AppSider collapsed={collapsed} onCollapse={setCollapsed}>
+          <div className="ih-sider-inner">
+            <Link to="/" aria-label="InsightHub, início" style={{ padding: 'var(--ih-space-2)' }}>
+              <Logo collapsed={collapsed} />
+            </Link>
+            <nav aria-label="Principal">
+              <AppMenu aria-label="Seções" items={menuItems(true)} selectedKey={section} collapsed={collapsed} />
+            </nav>
+            <div className="ih-sider-spacer" />
+            <AppStack gap={1}>
+              <AppButton variant="ghost" block icon={<ApiOutlined />} onClick={connection.openDialog} aria-label={collapsed ? connectLabel : undefined}>
+                {collapsed ? null : connectLabel}
+              </AppButton>
+              <AppButton variant="ghost" block icon={<MenuOutlined />} onClick={() => setCollapsed((value) => !value)} aria-label={collapsed ? 'Expandir o menu' : undefined}>
+                {collapsed ? null : 'Recolher menu'}
+              </AppButton>
+            </AppStack>
+          </div>
+        </AppSider>
       ) : null}
 
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-line bg-surface px-4 py-5 lg:flex" style={{ top: client.kind === 'demo' ? 28 : 0 }}>
-        <Link to="/" className="mb-6 px-2 no-underline" aria-label="InsightHub, início">
-          <Logo />
-        </Link>
-        <nav aria-label="Principal" className="flex flex-col gap-1">
-          {NAV_ITEMS.map((item) =>
-            navLink(
-              item,
-              'flex min-h-11 items-center gap-3 rounded-xl px-3 text-[15px] font-semibold text-muted no-underline transition-colors hover:bg-surface-2 hover:text-fg',
-              'bg-primary-soft text-fg!',
-              <>
-                <item.Icon aria-hidden="true" size={19} />
-                <span className="flex-1">{item.label}</span>
-                <kbd className="kbd opacity-70">G {item.go}</kbd>
-              </>,
-            ),
-          )}
-        </nav>
-        <div className="mt-auto flex flex-col gap-2">
-          <button type="button" className="btn justify-between text-muted" onClick={() => setPaletteOpen(true)}>
-            <span className="flex items-center gap-2">
-              <Search aria-hidden="true" size={16} />
-              Buscar
+      <AppLayoutBody>
+        {client.kind === 'demo' ? (
+          <div role="region" aria-label="Aviso de demonstração" className="ih-banner">
+            <span>
+              <strong>Demo com dados fictícios</strong>
+              <span className="ih-hide-phone"> · produto inventado “Atlas Analytics”, tudo roda no seu navegador</span>
             </span>
-            <kbd className="kbd">Ctrl K</kbd>
-          </button>
-          <button type="button" className="btn btn-sm justify-start text-muted" onClick={connection.openDialog}>
-            <Plug aria-hidden="true" size={15} />
-            {connection.mode === 'http' ? 'API conectada' : 'Conectar à API'}
-          </button>
-          <div className="flex gap-2">
-            <button type="button" className="btn btn-sm flex-1" onClick={() => setHelpOpen(true)}>
-              <Keyboard aria-hidden="true" size={15} />
-              Atalhos
-            </button>
-            <ThemeToggle showLabel={false} />
-            <button type="button" className="btn btn-sm btn-icon" aria-label="Rever o tour" onClick={startTour}>
-              <Compass aria-hidden="true" size={16} />
-            </button>
+            {faults ? <FaultSimulator controller={faults} /> : null}
           </div>
-        </div>
-      </aside>
+        ) : null}
 
-      <div className="lg:pl-64">
-        <header className="glass sticky top-0 z-20 flex items-center justify-between gap-2 border-b border-line px-4 py-2 lg:hidden">
-          <Link to="/" className="flex min-h-11 items-center gap-2 no-underline" aria-label="InsightHub, início">
-            <LogoMark size={30} />
-            <span className="display text-lg text-fg">InsightHub</span>
-          </Link>
-          <div className="flex items-center gap-2">
-            <button type="button" className="btn btn-sm btn-icon" aria-label="Buscar comandos" onClick={() => setPaletteOpen(true)}>
-              <Search aria-hidden="true" size={17} />
-            </button>
-            <ThemeToggle showLabel={false} />
-          </div>
-        </header>
-        <main
-          id="conteudo"
-          ref={mainRef}
-          tabIndex={-1}
-          className="mx-auto w-full max-w-[1180px] px-4 pb-28 pt-5 sm:px-6 lg:px-8 lg:pb-12 lg:pt-8"
-        >
-          <PageTransition key={pathname}>
-            <Outlet />
-          </PageTransition>
-          <footer className="mt-10 border-t border-line pt-4 text-xs text-muted">
+        <AppLayoutHeader>
+          {desktop ? null : (
+            <>
+              <AppIconButton label="Abrir o menu" icon={<MenuOutlined />} onClick={() => setMenuOpen(true)} />
+              <Link to="/" aria-label="InsightHub, início" className="ih-logo">
+                <LogoMark size={30} />
+              </Link>
+            </>
+          )}
+          <AppButton variant="ghost" className="ih-header-search" icon={<SearchOutlined />} onClick={() => setPaletteOpen(true)}>
+            <span className="ih-phone-sr-only">Buscar</span>
+            <span className="ih-hide-phone ih-menu-key">
+              <AppKbd>Ctrl K</AppKbd>
+            </span>
+          </AppButton>
+          <div className="ih-fill" />
+          <AppIconButton
+            label={mode === 'dark' ? 'Usar tema claro' : 'Usar tema escuro'}
+            aria-pressed={mode === 'dark'}
+            icon={mode === 'dark' ? <MoonOutlined /> : <SunOutlined />}
+            onClick={() => applyNextTheme()}
+          />
+          <AppDropdown items={accountItems}>
+            <AppButton variant="ghost" aria-label="Menu da conta" icon={<AppAvatar size="sm" background="var(--ih-primary)"><UserOutlined /></AppAvatar>} />
+          </AppDropdown>
+        </AppLayoutHeader>
+
+        <AppLayoutContent id="conteudo" contentRef={mainRef}>
+          <Outlet />
+          <footer className="ih-footer-note">
             Projeto pessoal de portfólio. Todos os dados desta demo são fictícios e gerados de forma determinística.
           </footer>
-        </main>
-      </div>
+        </AppLayoutContent>
+      </AppLayoutBody>
 
-      <nav
-        aria-label="Navegação móvel"
-        className="glass safe-bottom fixed inset-x-0 bottom-0 z-30 border-t border-line lg:hidden"
-      >
-        <ul className="m-0 grid list-none grid-cols-5 p-0">
-          {NAV_ITEMS.filter((item) => MOBILE_PRIMARY.includes(item.slug)).map((item) => (
-            <li key={item.slug}>
-              {navLink(
-                item,
-                'flex min-h-[60px] flex-col items-center justify-center gap-0.5 text-[11.5px] font-semibold text-muted no-underline',
-                'text-fg! [&_svg]:text-promoter',
-                <>
-                  <item.Icon aria-hidden="true" size={22} />
-                  {item.label}
-                </>,
-              )}
-            </li>
-          ))}
-          <li>
-            <button
-              type="button"
-              aria-haspopup="dialog"
-              className="flex min-h-[60px] w-full flex-col items-center justify-center gap-0.5 border-0 bg-transparent text-[11.5px] font-semibold text-muted"
-              onClick={() => setMoreOpen(true)}
-            >
-              <Ellipsis aria-hidden="true" size={22} />
-              Mais
-            </button>
-          </li>
-        </ul>
-      </nav>
-
-      {moreOpen ? (
-        <Modal title="Mais opções" onClose={() => setMoreOpen(false)}>
-          <ul className="m-0 flex list-none flex-col gap-1 p-0">
-            {secondary.map((item) => (
+      {desktop ? null : (
+        <nav aria-label="Navegação móvel" className="ih-bottom-bar">
+          <ul>
+            {NAV_ITEMS.filter((item) => MOBILE_PRIMARY.includes(item.slug)).map((item) => (
               <li key={item.slug}>
-                {navLink(
-                  item,
-                  'flex min-h-12 items-center gap-3 rounded-xl px-3 font-semibold no-underline hover:bg-surface-2',
-                  'bg-primary-soft',
-                  <>
-                    <item.Icon aria-hidden="true" size={20} />
-                    {item.label}
-                  </>,
-                )}
+                <Link to={item.to} params={{ surveyId }} search={carryFilters} aria-current={section === item.slug ? 'page' : undefined}>
+                  {item.icon}
+                  {item.label}
+                </Link>
               </li>
             ))}
             <li>
-              <button type="button" className="btn btn-ghost w-full justify-start gap-3" onClick={() => { setMoreOpen(false); setHelpOpen(true); }}>
-                <Keyboard aria-hidden="true" size={20} />
-                Atalhos de teclado
-              </button>
-            </li>
-            <li>
-              <button type="button" className="btn btn-ghost w-full justify-start gap-3" onClick={() => { setMoreOpen(false); startTour(); }}>
-                <Compass aria-hidden="true" size={20} />
-                Rever o tour
-              </button>
-            </li>
-            <li>
-              <button type="button" className="btn btn-ghost w-full justify-start gap-3" onClick={() => { setMoreOpen(false); connection.openDialog(); }}>
-                <Plug aria-hidden="true" size={20} />
-                {connection.mode === 'http' ? 'API conectada' : 'Conectar à API'}
-              </button>
-            </li>
-            <li>
-              <button type="button" className="btn btn-ghost w-full justify-start gap-3" onClick={() => { setMoreOpen(false); setPaletteOpen(true); }}>
-                <Command aria-hidden="true" size={20} />
-                Paleta de comandos
+              <button type="button" aria-haspopup="dialog" onClick={() => setMenuOpen(true)}>
+                <MenuOutlined aria-hidden="true" />
+                Mais
               </button>
             </li>
           </ul>
-        </Modal>
-      ) : null}
+        </nav>
+      )}
+
+      <AppDrawer open={menuOpen && !desktop} title="Mais opções" onClose={() => setMenuOpen(false)} placement="end" width={360}>
+        <AppStack gap={4}>
+          <nav aria-label="Todas as seções">
+            <AppMenu aria-label="Todas as seções" items={menuItems(false)} selectedKey={section} />
+          </nav>
+          <AppStack gap={1}>
+            <AppButton variant="ghost" block icon={<QuestionCircleOutlined />} onClick={() => { setMenuOpen(false); setHelpOpen(true); }}>
+              Atalhos de teclado
+            </AppButton>
+            <AppButton variant="ghost" block icon={<CompassOutlined />} onClick={() => { setMenuOpen(false); startTour(); }}>
+              Rever o tour
+            </AppButton>
+            <AppButton variant="ghost" block icon={<ApiOutlined />} onClick={() => { setMenuOpen(false); connection.openDialog(); }}>
+              {connectLabel}
+            </AppButton>
+            <AppButton variant="ghost" block icon={<SearchOutlined />} onClick={() => { setMenuOpen(false); setPaletteOpen(true); }}>
+              Paleta de comandos
+            </AppButton>
+          </AppStack>
+        </AppStack>
+      </AppDrawer>
 
       <Suspense fallback={null}>
-        {paletteOpen ? (
-          <CommandPalette surveyId={surveyId} onClose={closePalette} onShowShortcuts={showShortcuts} onStartTour={startTour} />
-        ) : null}
+        {paletteOpen ? <CommandPalette surveyId={surveyId} onClose={closePalette} onShowShortcuts={showShortcuts} onStartTour={startTour} /> : null}
         {helpOpen ? <ShortcutsModal onClose={() => setHelpOpen(false)} /> : null}
       </Suspense>
       <Tour />
-    </>
+    </AppLayout>
   );
 }

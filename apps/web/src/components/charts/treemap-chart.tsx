@@ -1,8 +1,8 @@
-import { sentimentLabel, squarify, type SentimentLabel, type Theme, type ThemeStat } from '@insighthub/core';
-import { Frown, Meh, Smile, TriangleAlert } from 'lucide-react';
-import type { CSSProperties } from 'react';
+import { sentimentLabel, type Theme, type ThemeStat } from '@insighthub/core';
+import { useMemo } from 'react';
 import { formatNps, formatNumber } from '../../lib/format';
-import { useElementWidth } from './use-element-width';
+import { AppButton, AppChart, FONT_DISPLAY, FONT_SANS, type AppChartOption, type Palette } from '../../ui';
+import { SENTIMENT_STYLE, escapeHtml, tooltipBox, useChartPalette } from './chart-theme';
 
 interface TreemapChartProps {
   themes: ThemeStat[];
@@ -10,164 +10,104 @@ interface TreemapChartProps {
   onSelect: (theme: Theme) => void;
 }
 
-export const SENTIMENT_STYLE: Record<
-  SentimentLabel,
-  { label: string; bg: string; edge: string; text: string; Icon: typeof Smile; pattern: string }
-> = {
-  positive: {
-    label: 'Positivo',
-    bg: 'var(--primary-soft)',
-    edge: 'var(--promoter-bar)',
-    text: 'var(--promoter)',
-    Icon: Smile,
-    pattern: 'none',
-  },
-  mixed: {
-    label: 'Misto',
-    bg: 'var(--amber-soft)',
-    edge: 'var(--passive-bar)',
-    text: 'var(--passive)',
-    Icon: Meh,
-    // dots
-    pattern: 'radial-gradient(circle, var(--passive-bar) 1.1px, transparent 1.5px) 0 0 / 11px 11px',
-  },
-  negative: {
-    label: 'Negativo',
-    bg: 'var(--accent-soft)',
-    edge: 'var(--detractor-bar)',
-    text: 'var(--detractor)',
-    Icon: Frown,
-    // diagonal stripes
-    pattern: 'repeating-linear-gradient(135deg, var(--detractor-bar) 0 1.5px, transparent 1.5px 10px)',
-  },
-};
+const HEIGHT = 380;
 
-const GAP = 4;
-const MIN_LABEL_PX = 12;
-/** Narrow tiles (a 360 px phone has some under 100 px) use one size that fits a long word like "Integrações". */
-const NARROW_LABEL_PX = 11.5;
-const MAX_LABEL_PX = 22;
-const MIN_NUMBER_PX = 20;
-const MAX_NUMBER_PX = 42;
+/** Dots and diagonal stripes: the sentiment cue that survives without color vision. */
+const DOTS = { symbol: 'circle', symbolSize: 0.7, dashArrayX: [8, 8], dashArrayY: [8, 8], color: 'rgba(120,90,10,0.35)' } as const;
+const STRIPES = { symbol: 'rect', rotation: Math.PI / 4, dashArrayX: [1, 0], dashArrayY: [2, 9], color: 'rgba(160,50,30,0.3)' } as const;
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
+function tileFill(sentiment: ReturnType<typeof sentimentLabel>, p: Palette): { color: string; decal?: object } {
+  if (sentiment === 'positive') return { color: p.primarySoft };
+  if (sentiment === 'mixed') return { color: p.amberSoft, decal: DOTS };
+  return { color: p.accentSoft, decal: STRIPES };
 }
 
-/** Treemap of themes: area is the number of mentions; color, pattern and icon are the sentiment. */
-export function TreemapChart({ themes, selected, onSelect }: TreemapChartProps) {
-  const [ref, width] = useElementWidth<HTMLDivElement>();
-  const height = width < 520 ? 400 : 380;
-  const rects = squarify(
-    themes.map((stat) => ({ stat, value: stat.mentions })),
-    width,
-    height,
-  );
-  return (
-    <div ref={ref} className="relative w-full" style={{ height }} role="group" aria-label="Mapa de temas">
-      {rects.map(({ item, x, y, width: w, height: h }, index) => {
-        const { stat } = item;
+export function treemapOption(themes: readonly ThemeStat[], selected: Theme | undefined, p: Palette): AppChartOption {
+  return {
+    tooltip: {
+      ...tooltipBox(p),
+      trigger: 'item',
+      formatter: ({ dataIndex }: { dataIndex: number }) => {
+        const stat = themes[dataIndex];
+        if (!stat) return '';
         const style = SENTIMENT_STYLE[sentimentLabel(stat.sentiment)];
-        const isSelected = selected === stat.theme;
-        const scale = Math.sqrt(Math.max(1, (w - GAP) * (h - GAP)));
-        const compact = w < 150 || h < 112;
-        const tile: CSSProperties = {
-          left: x + GAP / 2,
-          top: y + GAP / 2,
-          width: Math.max(0, w - GAP),
-          height: Math.max(0, h - GAP),
-          backgroundColor: style.bg,
-          color: 'var(--fg)',
-          borderTop: `5px solid ${style.edge}`,
-          outline: isSelected ? '3px solid var(--fg)' : undefined,
-          outlineOffset: isSelected ? '-3px' : undefined,
-          animationDelay: `${index * 60}ms`,
-        };
-        return (
-          <button
-            key={stat.theme}
-            type="button"
-            aria-pressed={isSelected}
-            onClick={() => onSelect(stat.theme)}
-            className={`fade-in absolute flex flex-col justify-between overflow-hidden rounded-xl text-left ${w < 150 ? 'p-2' : 'p-3'} transition-transform hover:z-10 hover:scale-[1.015]`}
-            style={tile}
-          >
-            {/* The pattern sits under the text and fades out where the text is, so contrast stays AA. */}
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-0 opacity-[0.16]"
-              style={{ background: style.pattern }}
-            />
-            <span
-              className="display relative leading-[1.1]"
-              style={{
-                fontSize: w < 120 ? NARROW_LABEL_PX : clamp(Math.round(scale / 8), MIN_LABEL_PX, MAX_LABEL_PX),
-                overflowWrap: 'break-word',
-                hyphens: 'manual',
-              }}
-              lang="pt-BR"
-            >
-              {stat.label}
-            </span>
-            <span className="relative flex flex-col gap-1">
-              <span
-                className="display leading-none tabular-nums"
-                style={{ fontSize: clamp(Math.round(scale / 4.5), MIN_NUMBER_PX, MAX_NUMBER_PX) }}
-              >
-                {formatNumber(stat.mentions)}
-                <span className="sr-only"> menções</span>
-              </span>
-              <span className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[13px] font-semibold" style={{ color: style.text }}>
-                <style.Icon aria-hidden="true" size={compact ? 18 : 20} className="shrink-0" />
-                {compact ? formatNps(stat.sentiment) : `${style.label} · NPS ${formatNps(stat.sentiment)}`}
-                {compact ? <span className="sr-only"> de NPS, sentimento {style.label.toLowerCase()}</span> : null}
-              </span>
-              {stat.lowSample ? (
-                <span className="flex items-center gap-1 text-xs font-semibold" style={{ color: 'var(--passive)' }}>
-                  <TriangleAlert aria-hidden="true" size={13} className="shrink-0" />
-                  {compact ? <span className="sr-only">Amostra pequena</span> : 'Amostra pequena'}
-                </span>
-              ) : null}
-            </span>
-          </button>
-        );
-      })}
-    </div>
+        return `<div style="font-family:'Fraunces Variable',serif;font-size:20px;font-weight:600">${escapeHtml(stat.label)}</div><div style="font-size:12px;color:${p.muted}">${formatNumber(stat.mentions)} menções · ${stat.share}% das respostas</div><div style="font-size:12px">${style.label} · NPS ${formatNps(stat.sentiment)}</div>`;
+      },
+    },
+    series: [
+      {
+        type: 'treemap',
+        roam: false,
+        nodeClick: false,
+        breadcrumb: { show: false },
+        width: '100%',
+        height: '100%',
+        left: 0,
+        top: 0,
+        right: 0,
+        bottom: 0,
+        squareRatio: 1,
+        itemStyle: { gapWidth: 4, borderColor: p.surface, borderWidth: 0 },
+        label: { show: true, position: 'insideTopLeft', overflow: 'truncate', padding: [10, 12] },
+        data: themes.map((stat) => {
+          const sentiment = sentimentLabel(stat.sentiment);
+          const fill = tileFill(sentiment, p);
+          const isSelected = selected === stat.theme;
+          const edge = sentiment === 'positive' ? p.promoterBar : sentiment === 'mixed' ? p.passiveBar : p.detractorBar;
+          return {
+            name: stat.label,
+            value: stat.mentions,
+            theme: stat.theme,
+            itemStyle: { color: fill.color, decal: fill.decal, borderColor: isSelected ? p.fg : edge, borderWidth: isSelected ? 4 : 2, borderRadius: 12 },
+            label: {
+              formatter: `{name|${stat.label}}\n{count|${formatNumber(stat.mentions)}}\n{sent|${SENTIMENT_STYLE[sentiment].label} · NPS ${formatNps(stat.sentiment)}${stat.lowSample ? ' · amostra pequena' : ''}}`,
+              rich: {
+                name: { fontFamily: FONT_DISPLAY, fontSize: 18, fontWeight: 600, color: p.fg, lineHeight: 24 },
+                count: { fontFamily: FONT_DISPLAY, fontSize: 30, fontWeight: 600, color: p.fg, lineHeight: 38 },
+                sent: { fontFamily: FONT_SANS, fontSize: 12, fontWeight: 600, color: p[sentiment === 'positive' ? 'promoter' : sentiment === 'mixed' ? 'passive' : 'detractor'], lineHeight: 18 },
+              },
+            },
+          };
+        }),
+        animationDuration: 700,
+      },
+    ],
+  };
+}
+
+/** Treemap of themes: area is the number of mentions; the fill pattern, the word and the number are the sentiment. */
+export function TreemapChart({ themes, selected, onSelect }: TreemapChartProps) {
+  const palette = useChartPalette();
+  const option = useMemo(() => treemapOption(themes, selected, palette), [themes, selected, palette]);
+  const description = themes
+    .map((stat) => `${stat.label}: ${stat.mentions} menções, sentimento ${SENTIMENT_STYLE[sentimentLabel(stat.sentiment)].label.toLowerCase()}, NPS ${formatNps(stat.sentiment)}`)
+    .join('; ');
+  return (
+    <AppChart
+      option={option}
+      height={HEIGHT}
+      label={`Mapa de temas: o tamanho é o número de menções. ${description}`}
+      onClick={(event) => {
+        const data = event.data as { theme?: Theme } | undefined;
+        if (data?.theme) onSelect(data.theme);
+      }}
+    />
   );
 }
 
-export function ThemeTable({ themes }: { themes: ThemeStat[] }) {
+/** The same choice for keyboard and screen reader users: one button per theme, in the order of the map. */
+export function ThemePicker({ themes, selected, onSelect }: TreemapChartProps) {
   return (
-    <table className="data-table" aria-label="Temas e sentimento">
-      <thead>
-        <tr>
-          <th scope="col">Tema</th>
-          <th scope="col">Menções</th>
-          <th scope="col">Parcela</th>
-          <th scope="col">Sentimento (NPS)</th>
-          <th scope="col">Promotores</th>
-          <th scope="col">Neutros</th>
-          <th scope="col">Detratores</th>
-        </tr>
-      </thead>
-      <tbody>
-        {themes.map((stat) => (
-          <tr key={stat.theme}>
-            <th scope="row">
-              {stat.label}
-              {stat.lowSample ? <span className="badge badge-passive ml-2">Amostra pequena</span> : null}
-            </th>
-            <td className="tabular-nums">{formatNumber(stat.mentions)}</td>
-            <td className="tabular-nums">{stat.share}%</td>
-            <td className="tabular-nums">
-              {SENTIMENT_STYLE[sentimentLabel(stat.sentiment)].label} ({formatNps(stat.sentiment)})
-            </td>
-            <td className="tabular-nums">{stat.promoters}</td>
-            <td className="tabular-nums">{stat.passives}</td>
-            <td className="tabular-nums">{stat.detractors}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <div role="group" aria-label="Escolher um tema">
+    <ul className="ih-row ih-gap-2" style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+      {themes.map((stat) => (
+        <li key={stat.theme}>
+          <AppButton size="sm" variant={selected === stat.theme ? 'primary' : 'secondary'} aria-pressed={selected === stat.theme} onClick={() => onSelect(stat.theme)}>
+            {stat.label} · {formatNumber(stat.mentions)}
+          </AppButton>
+        </li>
+      ))}
+    </ul>
+    </div>
   );
 }

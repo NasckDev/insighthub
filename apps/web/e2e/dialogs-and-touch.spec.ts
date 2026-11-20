@@ -117,10 +117,15 @@ test.describe('celular com toque', () => {
           if (style.visibility === 'hidden' || style.display === 'none') continue;
           const rect = node.getBoundingClientRect();
           if (rect.width === 0 || rect.height === 0) continue;
-          // Inline citation chips keep their line height and get an extended hit area (see styles.css).
-          if (node.classList.contains('cite')) continue;
+          // Inline citation chips keep their line height and get an extended hit area (see ui.css).
+          if (node.classList.contains('ih-cite')) continue;
           // The skip link only appears on focus.
-          if (node.classList.contains('skip-link')) continue;
+          if (node.classList.contains('ih-skip-link')) continue;
+          // The text input inside a field is covered by the field box, which is the real target.
+          if (node instanceof HTMLInputElement) {
+            const field = node.closest('.ant-input-affix-wrapper, .ant-input-outlined, .ant-select, .ant-picker, .ih-palette-search')?.getBoundingClientRect();
+            if (field && field.height >= MIN - 0.5) continue;
+          }
           // A native checkbox is covered by its 44 px label row.
           if (node instanceof HTMLInputElement && node.type === 'checkbox') {
             const label = node.closest('label')?.getBoundingClientRect();

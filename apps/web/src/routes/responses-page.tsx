@@ -1,7 +1,5 @@
 import { DEFAULT_PAGE_SIZE, THEME_KEYS, THEME_LABELS, type SurveyResponse } from '@insighthub/core';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { Fragment } from 'react';
 import { useClient } from '../components/app-context';
 import { clearFiltersPatch } from '../components/filter-bar';
 import { Avatar, HighlightText, ScoreBadge, ThemeChips } from '../components/response-bits';
@@ -12,6 +10,7 @@ import { PLAN_LABELS, REGION_LABELS, ROLE_LABELS } from '../lib/labels';
 import { personOf } from '../lib/people';
 import { filtersOf, hasActiveFilters } from '../lib/search';
 import { usePatchSearch, useSurveyId, useSurveySearch } from '../lib/use-survey-search';
+import { AppButton, AppCard, AppPagination, AppSelect, AppStack, AppTable, AppTag, AppText, type AppColumn } from '../ui';
 
 const PAGE_SIZES = [10, 20, 50] as const;
 
@@ -22,51 +21,41 @@ const SORT_LABELS: Record<ResponseSort, string> = {
   'score-asc': 'Menor nota',
 };
 
-function ResponseRow({
-  item,
-  term,
-  onOpen,
-}: {
-  item: SurveyResponse;
-  term?: string;
-  onOpen: (id: string) => void;
-}) {
+function Respondent({ item, onOpen }: { item: SurveyResponse; onOpen: (id: string) => void }) {
   const person = personOf(item.respondentId);
   return (
-    <tr>
-      <td>
-        <button
-          type="button"
-          className="tap flex items-center gap-2.5 border-0 bg-transparent p-0 text-left"
-          onClick={() => onOpen(item.id)}
-        >
-          <Avatar respondentId={item.respondentId} size={34} />
-          <span className="flex flex-col">
-            <span className="text-sm font-semibold leading-tight">
-              <span className="sr-only">Abrir resposta </span>
-              {person.name}
-            </span>
-            <span className="font-mono text-xs text-muted">{item.id}</span>
-          </span>
-        </button>
-      </td>
-      <td className="whitespace-nowrap">
-        <ScoreBadge score={item.npsScore} />
-        <span className="mt-1 block text-xs text-muted">{formatDate(item.submittedAt)}</span>
-      </td>
-      <td className="meta">
-        <span className="font-semibold text-fg">{PLAN_LABELS[item.plan]}</span>
-        <span className="block md:mt-0.5">
-          {REGION_LABELS[item.region]} · {ROLE_LABELS[item.role]}
+    <button type="button" className="ih-respondent" onClick={() => onOpen(item.id)}>
+      <Avatar respondentId={item.respondentId} size={34} />
+      <span className="ih-stack">
+        <span className="ih-respondent-name">
+          <span className="ih-sr-only">Abrir resposta </span>
+          {person.name}
         </span>
-      </td>
-      <td className="min-w-0 md:min-w-64">
-        <p className="m-0 mb-1.5">
-          <HighlightText text={item.comment} term={term} />
-        </p>
-        <ThemeChips comment={item.comment} />
-      </td>
-    </tr>
+        <span className="ih-respondent-id">{item.id}</span>
+      </span>
+    </button>
+  );
+}
+
+function Profile({ item }: { item: SurveyResponse }) {
+  return (
+    <span className="ih-stack">
+      <AppText strong>{PLAN_LABELS[item.plan]}</AppText>
+      <AppText tone="muted" small>
+        {REGION_LABELS[item.region]} · {ROLE_LABELS[item.role]}
+      </AppText>
+    </span>
+  );
+}
+
+function Comment({ item, term }: { item: SurveyResponse; term?: string }) {
+  return (
+    <AppStack gap={2}>
+      <span>
+        <HighlightText text={item.comment} term={term} />
+      </span>
+      <ThemeChips comment={item.comment} />
+    </AppStack>
   );
 }
 
@@ -79,12 +68,32 @@ export function ResponsesPage() {
   const page = search.page ?? 1;
   const pageSize = search.pageSize ?? DEFAULT_PAGE_SIZE;
   const sort = search.sort ?? 'recent';
+  const open = (id: string) => patch({ r: id });
 
   const query = useQuery({
     queryKey: ['responses', surveyId, filters, page, pageSize, sort],
     queryFn: ({ signal }) => client.listResponses(surveyId, filters, { page, pageSize, sort }, { signal }),
     placeholderData: keepPreviousData,
   });
+
+  const columns: AppColumn<SurveyResponse>[] = [
+    { key: 'person', title: 'Respondente', width: '25%', render: (item) => <Respondent item={item} onOpen={open} /> },
+    {
+      key: 'score',
+      title: 'Nota e data',
+      nowrap: true,
+      render: (item) => (
+        <span className="ih-stack ih-gap-1" style={{ alignItems: 'flex-start' }}>
+          <ScoreBadge score={item.npsScore} />
+          <AppText tone="muted" small>
+            {formatDate(item.submittedAt)}
+          </AppText>
+        </span>
+      ),
+    },
+    { key: 'profile', title: 'Perfil', render: (item) => <Profile item={item} /> },
+    { key: 'comment', title: 'Comentário', width: '38%', render: (item) => <Comment item={item} term={search.q} /> },
+  ];
 
   return (
     <QueryView
@@ -99,26 +108,18 @@ export function ResponsesPage() {
               title="Nenhuma resposta encontrada"
               description="Nenhuma resposta corresponde aos filtros e à busca atuais. Tente outro termo, remova um filtro ou comece por um tema."
               action={
-                <div className="flex flex-col items-center gap-3">
-                  <ul className="m-0 flex list-none flex-wrap justify-center gap-2 p-0" aria-label="Temas para explorar">
+                <AppStack gap={3} align="center">
+                  <ul className="ih-row ih-gap-2 ih-center" style={{ margin: 0, padding: 0, listStyle: 'none' }} aria-label="Temas para explorar">
                     {THEME_KEYS.map((theme) => (
                       <li key={theme}>
-                        <button
-                          type="button"
-                          className="badge cursor-pointer bg-primary-soft hover:border-primary"
-                          onClick={() => patch({ ...clearFiltersPatch(), theme })}
-                        >
+                        <AppButton size="sm" onClick={() => patch({ ...clearFiltersPatch(), theme })}>
                           Ver tema {THEME_LABELS[theme]}
-                        </button>
+                        </AppButton>
                       </li>
                     ))}
                   </ul>
-                  {hasActiveFilters(search) ? (
-                    <button type="button" className="btn" onClick={() => patch(clearFiltersPatch())}>
-                      Limpar filtros
-                    </button>
-                  ) : null}
-                </div>
+                  {hasActiveFilters(search) ? <AppButton onClick={() => patch(clearFiltersPatch())}>Limpar filtros</AppButton> : null}
+                </AppStack>
               }
             />
           );
@@ -128,11 +129,7 @@ export function ResponsesPage() {
             <EmptyState
               title="Esta página não existe"
               description={`Há ${formatNumber(data.total)} respostas em ${data.totalPages} páginas.`}
-              action={
-                <button type="button" className="btn" onClick={() => patch({ page: undefined })}>
-                  Voltar à primeira página
-                </button>
-              }
+              action={<AppButton onClick={() => patch({ page: undefined })}>Voltar à primeira página</AppButton>}
             />
           );
         }
@@ -140,97 +137,69 @@ export function ResponsesPage() {
       }}
     >
       {(data) => (
-        <Fragment>
+        <>
           {data.partial ? (
-            <PartialNotice
-              message={`Foram carregadas ${data.partial.loaded} de ${data.partial.expected} linhas desta página.`}
-              onRetry={() => void query.refetch()}
-            />
+            <PartialNotice message={`Foram carregadas ${data.partial.loaded} de ${data.partial.expected} linhas desta página.`} onRetry={() => void query.refetch()} />
           ) : null}
-          <section className="flex flex-col gap-3" aria-label="Respostas">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="m-0 text-sm text-muted" aria-live="polite">
-                {formatNumber(data.total)} respostas · página {data.page} de {data.totalPages}
-              </p>
-              {client.kind === 'demo' ? (
-                <div className="flex items-center gap-2">
-                  <label htmlFor="sort" className="text-sm text-muted">
-                    Ordenar por
-                  </label>
-                  <select
-                    id="sort"
-                    className="field"
-                    value={sort}
-                    onChange={(event) => patch({ sort: event.target.value as ResponseSort, page: undefined })}
-                  >
-                    {RESPONSE_SORTS.map((option) => (
-                      <option key={option} value={option}>
-                        {SORT_LABELS[option]}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ) : null}
-            </div>
-            <div className="card p-0! md:overflow-hidden sm:p-0! max-md:border-0 max-md:bg-transparent max-md:shadow-none">
-              {/* A scrollable region must be focusable so keyboard users can scroll it. */}
-              {/* eslint-disable jsx-a11y/no-noninteractive-tabindex */}
-              <div className="md:overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela de respostas, role para ver mais colunas">
-                {/* eslint-enable jsx-a11y/no-noninteractive-tabindex */}
-                <table className="data-table rt">
-                  <caption className="sr-only">Respostas da pesquisa</caption>
-                  <thead>
-                    <tr>
-                      <th scope="col">Respondente</th>
-                      <th scope="col">Nota e data</th>
-                      <th scope="col">Perfil</th>
-                      <th scope="col">Comentário</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.items.map((item) => (
-                      <ResponseRow key={item.id} item={item} term={search.q} onOpen={(r) => patch({ r })} />
-                    ))}
-                  </tbody>
-                </table>
+          <section aria-label="Respostas">
+            <AppStack gap={3}>
+              <div className="ih-row ih-between ih-gap-3">
+                <p className="ih-muted" aria-live="polite" style={{ margin: 0 }}>
+                  {formatNumber(data.total)} respostas · página {data.page} de {data.totalPages}
+                  {search.q ? (
+                    <>
+                      {' '}
+                      <AppTag tone="primary">busca ativa</AppTag>
+                    </>
+                  ) : null}
+                </p>
+                {client.kind === 'demo' ? (
+                  <div className="ih-row ih-gap-2 ih-nowrap">
+                    <label htmlFor="sort" className="ih-muted">
+                      Ordenar por
+                    </label>
+                    <AppSelect<ResponseSort>
+                      id="sort"
+                      value={sort}
+                      options={RESPONSE_SORTS.map((option) => ({ value: option, label: SORT_LABELS[option] }))}
+                      onChange={(value) => patch({ sort: value, page: undefined })}
+                      popupMatchSelectWidth={false}
+                    />
+                  </div>
+                ) : null}
               </div>
-            </div>
-            <nav aria-label="Paginação" className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <label htmlFor="page-size" className="text-sm text-muted">
-                  Por página
-                </label>
-                <select
-                  id="page-size"
-                  className="field"
-                  value={pageSize}
-                  onChange={(event) => patch({ pageSize: Number(event.target.value), page: undefined })}
-                >
-                  {PAGE_SIZES.map((size) => (
-                    <option key={size} value={size}>
-                      {size}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex gap-2">
-                <button type="button" className="btn" disabled={data.page <= 1} onClick={() => patch({ page: data.page - 1 })}>
-                  <ChevronLeft aria-hidden="true" size={16} />
-                  Anterior
-                </button>
-                <button
-                  type="button"
-                  className="btn"
-                  disabled={data.page >= data.totalPages}
-                  onClick={() => patch({ page: data.page + 1 })}
-                >
-                  Próxima
-                  <ChevronRight aria-hidden="true" size={16} />
-                </button>
-              </div>
-            </nav>
+              <AppCard styles={{ body: { padding: 0 } }} appearance="outlined" className="ih-table-card">
+                <AppTable<SurveyResponse>
+                  label="Respostas da pesquisa"
+                  rows={data.items}
+                  rowKey={(item) => item.id}
+                  columns={columns}
+                  mobileCard={(item) => (
+                    <AppStack gap={3}>
+                      <div className="ih-row ih-between ih-start ih-gap-2 ih-nowrap">
+                        <Respondent item={item} onOpen={open} />
+                        <ScoreBadge score={item.npsScore} />
+                      </div>
+                      <Comment item={item} term={search.q} />
+                      <AppText tone="muted" small>
+                        {formatDate(item.submittedAt)} · {PLAN_LABELS[item.plan]} · {REGION_LABELS[item.region]} · {ROLE_LABELS[item.role]}
+                      </AppText>
+                    </AppStack>
+                  )}
+                />
+              </AppCard>
+              <nav aria-label="Paginação">
+                <AppPagination
+                  current={data.page}
+                  pageSize={pageSize}
+                  total={data.total}
+                  pageSizeOptions={PAGE_SIZES}
+                  onChange={(nextPage, nextSize) => patch(nextSize !== pageSize ? { pageSize: nextSize, page: undefined } : { page: nextPage })}
+                />
+              </nav>
+            </AppStack>
           </section>
-        </Fragment>
+        </>
       )}
     </QueryView>
   );

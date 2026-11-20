@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createDemoClient } from '../data/demo-client';
 import { ClientHost, parseApiUrl, useConnection } from './connection';
+import { AppProvider } from '../ui';
 import { useClient } from './app-context';
 
 const TOKEN = 'token-secreto-de-teste-0123456789';
@@ -40,11 +41,13 @@ function Probe() {
 function renderHost() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <QueryClientProvider client={queryClient}>
-      <ClientHost demoClient={createDemoClient({ latencyMs: 0, chunkDelayMs: 0 })}>
-        <Probe />
-      </ClientHost>
-    </QueryClientProvider>,
+    <AppProvider>
+      <QueryClientProvider client={queryClient}>
+        <ClientHost demoClient={createDemoClient({ latencyMs: 0, chunkDelayMs: 0 })}>
+          <Probe />
+        </ClientHost>
+      </QueryClientProvider>
+    </AppProvider>,
   );
 }
 

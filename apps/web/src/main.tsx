@@ -3,10 +3,11 @@ import { RouterProvider } from '@tanstack/react-router';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ClientHost } from './components/connection';
-import { MotionRoot } from './components/motion';
-import { ToastProvider } from './components/toast';
 import { createAppRouter } from './router';
-import './styles.css';
+import { AppProvider, injectPaletteCss } from './ui';
+
+// The palette goes into <head> before React renders, so the first paint already has the right colors.
+injectPaletteCss();
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -31,14 +32,12 @@ const apiUrl = import.meta.env.VITE_API_URL?.trim() || undefined;
 
 createRoot(container).render(
   <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <ClientHost demoClient={demoClient} initialApiUrl={apiUrl}>
-        <MotionRoot>
-          <ToastProvider>
-            <RouterProvider router={router} />
-          </ToastProvider>
-        </MotionRoot>
-      </ClientHost>
-    </QueryClientProvider>
+    <AppProvider>
+      <QueryClientProvider client={queryClient}>
+        <ClientHost demoClient={demoClient} initialApiUrl={apiUrl}>
+          <RouterProvider router={router} />
+        </ClientHost>
+      </QueryClientProvider>
+    </AppProvider>
   </StrictMode>,
 );

@@ -1,4 +1,3 @@
-import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
 
@@ -7,7 +6,7 @@ import { defineConfig } from 'vitest/config';
 // hash history, so a reload on an inner route never needs server-side rewrites.
 export default defineConfig({
   base: './',
-  plugins: [react(), tailwindcss()],
+  plugins: [react()],
   build: {
     outDir: 'dist',
     sourcemap: false,
@@ -26,7 +25,7 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
-    setupFiles: ['./src/test/setup.ts'],
+    setupFiles: ['./src/test/setup.tsx'],
     css: false,
     testTimeout: 30_000,
     exclude: ['e2e/**', 'node_modules/**'],

@@ -17,18 +17,26 @@ const ROUTES = [
   { path: 'quadro', ready: 'Quadro de insights' },
 ];
 
+const VIEWPORTS = [
+  { name: '1440 px', width: 1440, height: 900 },
+  { name: '360 px', width: 360, height: 740 },
+];
+
 for (const route of ROUTES) {
-  for (const theme of ['light', 'dark'] as const) {
-    test(`a11y: ${route.path} no tema ${theme} não tem violações do axe`, async ({ page }) => {
-      const problems = watchProblems(page);
-      await page.goto(`./${SURVEY}/${route.path}`, { waitUntil: 'domcontentloaded' });
-      await page.getByRole('heading', { level: 1 }).waitFor();
-      await page.getByText(route.ready, { exact: false }).first().waitFor();
-      await page.waitForLoadState('networkidle');
-      await setTheme(page, theme);
-      await expectNoViolations(page, `${route.path} (${theme})`);
-      expect(problems).toEqual([]);
-    });
+  for (const viewport of VIEWPORTS) {
+    for (const theme of ['light', 'dark'] as const) {
+      test(`a11y: ${route.path} em ${viewport.name} no tema ${theme} não tem violações do axe`, async ({ page }) => {
+        const problems = watchProblems(page);
+        await page.setViewportSize({ width: viewport.width, height: viewport.height });
+        await page.goto(`./${SURVEY}/${route.path}`, { waitUntil: 'domcontentloaded' });
+        await page.getByRole('heading', { level: 1 }).waitFor();
+        await page.getByText(route.ready, { exact: false }).first().waitFor();
+        await page.waitForLoadState('networkidle');
+        await setTheme(page, theme);
+        await expectNoViolations(page, `${route.path} (${viewport.name}, ${theme})`);
+        expect(problems).toEqual([]);
+      });
+    }
   }
 }
 
@@ -96,7 +104,7 @@ test('recarregar numa rota interna continua funcionando', async ({ page }) => {
   await expect(page.getByRole('heading', { level: 1, name: 'Comparar segmentos' })).toBeVisible();
   await page.reload({ waitUntil: 'domcontentloaded' });
   await expect(page.getByRole('heading', { level: 1, name: 'Comparar segmentos' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Região' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('tab', { name: 'Região' })).toHaveAttribute('aria-selected', 'true');
   expect(problems).toEqual([]);
 });
 

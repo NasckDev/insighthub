@@ -1,60 +1,75 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { PALETTES, resolveTokens, type Palette, type ThemeMode } from '../ui';
 import { contrastRatio } from './contrast';
 
-const css = readFileSync(join(process.cwd(), 'src', 'styles.css'), 'utf8');
-
-function tokens(selector: string): Record<string, string> {
-  const start = css.indexOf(selector);
-  const body = css.slice(start, css.indexOf('}', start));
-  return Object.fromEntries([...body.matchAll(/--([\w-]+):\s*(#[0-9a-f]{6})/g)].map((m) => [m[1]!, m[2]!]));
-}
-
-const THEMES = { claro: tokens(':root {'), escuro: tokens(":root[data-theme='dark']") };
-
-/** [foreground token, background token, minimum ratio]: 4.5 for text, 3 for graphics and controls. */
-const PAIRS: [string, string, number][] = [
+/** [foreground, background, minimum ratio]: 4.5 for text, 3 for graphics and controls (WCAG 2.2 AA). */
+const PAIRS: [keyof Palette, keyof Palette, number][] = [
   ['fg', 'bg', 4.5],
   ['fg', 'surface', 4.5],
-  ['fg', 'surface-2', 4.5],
+  ['fg', 'surface2', 4.5],
   ['muted', 'bg', 4.5],
   ['muted', 'surface', 4.5],
-  ['muted', 'surface-2', 4.5],
+  ['muted', 'surface2', 4.5],
   ['primary', 'bg', 4.5],
-  ['primary-fg', 'primary', 4.5],
-  ['promoter', 'primary-soft', 4.5],
-  ['passive', 'amber-soft', 4.5],
-  ['detractor', 'accent-soft', 4.5],
+  ['primaryFg', 'primary', 4.5],
+  ['promoter', 'primarySoft', 4.5],
+  ['passive', 'amberSoft', 4.5],
+  ['detractor', 'accentSoft', 4.5],
+  ['plum', 'plumSoft', 4.5],
   ['promoter', 'surface', 4.5],
   ['passive', 'surface', 4.5],
   ['detractor', 'surface', 4.5],
-  ['accent-text', 'bg', 4.5],
-  ['danger-fg', 'danger-bg', 4.5],
-  ['warn-fg', 'warn-bg', 4.5],
-  ['banner-fg', 'banner-bg', 4.5],
+  ['accentText', 'bg', 4.5],
+  ['dangerFg', 'dangerBg', 4.5],
+  ['warnFg', 'warnBg', 4.5],
+  ['bannerFg', 'bannerBg', 4.5],
   ['plum', 'surface', 4.5],
-  ['control-line', 'bg', 3],
-  ['control-line', 'surface', 3],
+  ['controlLine', 'bg', 3],
+  ['controlLine', 'surface', 3],
   ['focus', 'bg', 3],
   ['focus', 'surface', 3],
   ['accent', 'surface', 3],
   ['amber', 'surface', 3],
   ['primary', 'surface', 3],
-  ['promoter-bar', 'surface', 3],
-  ['passive-bar', 'surface', 3],
-  ['detractor-bar', 'surface', 3],
+  ['promoterBar', 'surface', 3],
+  ['passiveBar', 'surface', 3],
+  ['detractorBar', 'surface', 3],
 ];
 
-describe('palette contrast (WCAG AA)', () => {
-  for (const [theme, values] of Object.entries(THEMES)) {
-    it.each(PAIRS)(`tema ${theme}: %s sobre %s >= %s`, (fg, bg, min) => {
-      expect(contrastRatio(values[fg]!, values[bg]!)).toBeGreaterThanOrEqual(min);
+const MODES: ThemeMode[] = ['light', 'dark'];
+
+describe('palette contrast (WCAG AA), computed from the central theme', () => {
+  for (const mode of MODES) {
+    it.each(PAIRS)(`tema ${mode}: %s sobre %s >= %s`, (fg, bg, min) => {
+      const palette = PALETTES[mode];
+      expect(contrastRatio(palette[fg], palette[bg])).toBeGreaterThanOrEqual(min);
     });
   }
 
   it('matches the documented brand colors in the light theme', () => {
-    expect(THEMES.claro).toMatchObject({ bg: '#fbf8f3', fg: '#1b1b3a', primary: '#0f766e', accent: '#e8604c' });
-    expect(THEMES.escuro.bg).toBe('#0e1514');
+    expect(PALETTES.light).toMatchObject({ bg: '#fbf8f3', fg: '#1b1b3a', primary: '#0f766e', accent: '#e8604c' });
+    expect(PALETTES.dark.bg).toBe('#0e1514');
   });
+});
+
+/** Tokens that Ant Design derives itself (hover states, secondary text) must also hold AA. */
+describe('Ant Design tokens after the theme is applied', () => {
+  for (const mode of MODES) {
+    const resolved = resolveTokens(mode);
+    const text = ['colorText', 'colorTextSecondary', 'colorTextTertiary', 'colorTextDescription', 'colorTextHeading'] as const;
+    const backgrounds = ['colorBgContainer', 'colorBgLayout', 'colorBgElevated'] as const;
+    for (const foreground of text) {
+      for (const background of backgrounds) {
+        it(`tema ${mode}: ${foreground} sobre ${background} >= 4.5`, () => {
+          expect(contrastRatio(String(resolved[foreground]), String(resolved[background]))).toBeGreaterThanOrEqual(4.5);
+        });
+      }
+    }
+    it(`tema ${mode}: texto do botão primário sobre a cor primária >= 4.5`, () => {
+      expect(contrastRatio(PALETTES[mode].primaryFg, String(resolved.colorPrimary))).toBeGreaterThanOrEqual(4.5);
+    });
+    it(`tema ${mode}: borda de campo sobre o container >= 3`, () => {
+      expect(contrastRatio(String(resolved.colorBorder), String(resolved.colorBgContainer))).toBeGreaterThanOrEqual(3);
+    });
+  }
 });

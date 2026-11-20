@@ -20,7 +20,7 @@ function renderMarkers(chunk: string, props: InlineProps, keyPrefix: string): Re
     if (!id) return part;
     if (!props.verifiedIds.has(id))
       return (
-        <span key={`${keyPrefix}-${index}`} className="cite-plain">
+        <span key={`${keyPrefix}-${index}`} className="ih-cite-plain">
           {part}
         </span>
       );
@@ -28,7 +28,7 @@ function renderMarkers(chunk: string, props: InlineProps, keyPrefix: string): Re
       <button
         key={`${keyPrefix}-${index}`}
         type="button"
-        className="cite"
+        className="ih-cite"
         aria-label={`Abrir resposta-fonte ${id}`}
         onClick={() => props.onOpenCitation(id)}
       >
@@ -80,5 +80,5 @@ export function SynthesisText({ text, verifiedIds, onOpenCitation }: SynthesisTe
     }
   }
   flushBullets();
-  return <div className="prose-synthesis">{blocks}</div>;
+  return <div className="ih-prose">{blocks}</div>;
 }

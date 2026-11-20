@@ -1,12 +1,11 @@
 import { MAX_SEARCH_LENGTH, THEME_LABELS } from '@insighthub/core';
-import { Search, SlidersHorizontal, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { formatDate } from '../lib/format';
 import { NPS_SINGULAR, PLAN_LABELS, REGION_LABELS, ROLE_LABELS } from '../lib/labels';
 import { hasActiveFilters, type SurveySearch } from '../lib/search';
 import { usePatchSearch, useSurveySearch } from '../lib/use-survey-search';
+import { AppButton, AppDrawer, AppRow, AppSearchInput, AppStack, CloseOutlined, FilterOutlined } from '../ui';
 import { FacetPanel, toggled } from './facet-panel';
-import { Modal } from './modal';
 
 const SEARCH_DEBOUNCE_MS = 300;
 
@@ -67,7 +66,6 @@ export function FilterBar({ facetsVisible = false }: FilterBarProps) {
   const search = useSurveySearch();
   const patch = usePatchSearch();
   const [open, setOpen] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
   const chips = activeChips(search);
 
   // The box is controlled and follows the URL: a removed chip, "Limpar filtros" or the browser's back
@@ -100,108 +98,70 @@ export function FilterBar({ facetsVisible = false }: FilterBarProps) {
   }
 
   return (
-    <section aria-label="Filtros" className="flex flex-col gap-2">
-      <div className="flex items-end gap-2">
-        <div className="relative min-w-0 flex-1">
-          <label htmlFor="busca-global" className="sr-only">
-            Buscar nos comentários
-          </label>
-          <Search
-            aria-hidden="true"
-            size={17}
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted"
-          />
-          <input
-            ref={inputRef}
-            id="busca-global"
-            type="search"
-            className="field w-full pl-10 pr-12"
-            maxLength={MAX_SEARCH_LENGTH}
-            value={text}
-            placeholder="Buscar nos comentários"
-            onChange={(event) => setText(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') apply({ q: text.trim() || undefined });
-            }}
-            onBlur={() => {
-              const wanted = text.trim() || undefined;
-              if (wanted !== search.q) apply({ q: wanted });
-            }}
-          />
-          {text ? (
-            <button
-              type="button"
-              className="btn btn-icon btn-ghost absolute right-1 top-1/2 -translate-y-1/2"
-              aria-label="Limpar a busca"
-              onClick={() => {
-                setText('');
-                apply({ q: undefined });
-                inputRef.current?.focus();
+    <section aria-label="Filtros">
+      <AppStack gap={2}>
+        <div className="ih-row ih-gap-2 ih-nowrap">
+          <div className="ih-fill">
+            <AppSearchInput
+              id="busca-global"
+              aria-label="Buscar nos comentários"
+              placeholder="Buscar nos comentários"
+              maxLength={MAX_SEARCH_LENGTH}
+              value={text}
+              onChange={setText}
+              onClear={() => apply({ q: undefined })}
+              onPressEnter={() => apply({ q: text.trim() || undefined })}
+              onBlur={() => {
+                const wanted = text.trim() || undefined;
+                if (wanted !== search.q) apply({ q: wanted });
               }}
-            >
-              <X aria-hidden="true" size={16} />
-            </button>
-          ) : null}
+            />
+          </div>
+          <span className={facetsVisible ? 'ih-hide-desktop' : undefined}>
+            <AppButton icon={<FilterOutlined />} aria-haspopup="dialog" onClick={() => setOpen(true)}>
+              Filtros{chips.length > 0 ? ` (${chips.length})` : ''}
+            </AppButton>
+          </span>
         </div>
-        <button
-          type="button"
-          className={`btn ${facetsVisible ? 'lg:hidden' : ''}`}
-          aria-haspopup="dialog"
-          onClick={() => setOpen(true)}
-        >
-          <SlidersHorizontal aria-hidden="true" size={16} />
-          Filtros{chips.length > 0 ? ` (${chips.length})` : ''}
-        </button>
-      </div>
 
-      {chips.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-2">
-          <ul className="m-0 flex list-none flex-wrap gap-2 p-0" aria-label="Filtros ativos">
-            {chips.map((chip) => (
-              <li key={chip.key}>
-                <button
-                  type="button"
-                  className="badge cursor-pointer bg-primary-soft hover:border-primary"
-                  aria-label={`Remover filtro ${chip.text}`}
-                  onClick={() => {
-                    apply(chip.remove);
-                  }}
-                >
-                  {chip.text}
-                  <X aria-hidden="true" size={13} />
-                </button>
-              </li>
-            ))}
-          </ul>
-          {hasActiveFilters(search) ? (
-            <button type="button" className="btn btn-sm btn-ghost" onClick={clearAll}>
-              Limpar filtros
-            </button>
-          ) : null}
-        </div>
-      ) : null}
+        {chips.length > 0 ? (
+          <AppRow gap={2}>
+            <ul className="ih-row ih-gap-2" aria-label="Filtros ativos" style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+              {chips.map((chip) => (
+                <li key={chip.key}>
+                  <AppButton size="sm" aria-label={`Remover filtro ${chip.text}`} onClick={() => apply(chip.remove)}>
+                    {chip.text}
+                    <CloseOutlined aria-hidden="true" />
+                  </AppButton>
+                </li>
+              ))}
+            </ul>
+            {hasActiveFilters(search) ? (
+              <AppButton size="sm" variant="link" onClick={clearAll}>
+                Limpar filtros
+              </AppButton>
+            ) : null}
+          </AppRow>
+        ) : null}
+      </AppStack>
 
-      {open ? (
-        <Modal
-          title="Filtros"
-          onClose={() => setOpen(false)}
-          variant="sheet"
-          footer={
-            <div className="flex gap-2">
-              <button type="button" className="btn btn-primary flex-1" onClick={() => setOpen(false)}>
+      <AppDrawer
+        open={open}
+        title="Filtros"
+        onClose={() => setOpen(false)}
+        footer={
+          <div className="ih-row ih-gap-2 ih-nowrap">
+            <div className="ih-fill">
+              <AppButton variant="primary" block onClick={() => setOpen(false)}>
                 Ver resultados
-              </button>
-              {hasActiveFilters(search) ? (
-                <button type="button" className="btn" onClick={clearAll}>
-                  Limpar
-                </button>
-              ) : null}
+              </AppButton>
             </div>
-          }
-        >
-          <FacetPanel />
-        </Modal>
-      ) : null}
+            {hasActiveFilters(search) ? <AppButton onClick={clearAll}>Limpar</AppButton> : null}
+          </div>
+        }
+      >
+        <FacetPanel />
+      </AppDrawer>
     </section>
   );
 }

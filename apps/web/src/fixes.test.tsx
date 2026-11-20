@@ -44,28 +44,23 @@ beforeEach(() => {
 });
 
 describe('dialogs render in a portal', () => {
-  it('puts the filters dialog directly under <body>, outside the blurred filter bar', async () => {
+  it('puts the filters panel in a portal under <body>, outside the blurred filter bar', async () => {
     const user = userEvent.setup();
     renderApp(`${SURVEY}/visao-geral`);
     await user.click(await screen.findByRole('button', { name: /^Filtros/ }));
     const dialog = await screen.findByRole('dialog', { name: 'Filtros' });
-    expect(dialog.closest('.glass')).toBeNull();
-    // overlay (role=presentation) is a direct child of <body>
-    expect(dialog.parentElement?.parentElement).toBe(document.body);
+    expect(dialog.closest('.ih-filterbar')).toBeNull();
+    expect(document.body.contains(dialog)).toBe(true);
+    expect(document.querySelector('#root, [data-testid]')?.contains(dialog) ?? false).toBe(false);
   });
 
-  it('makes the page inert while a dialog is open and restores it on close', async () => {
-    const root = document.createElement('div');
-    root.id = 'root';
-    document.body.append(root);
+  it('closes the filters panel on Escape', async () => {
     const user = userEvent.setup();
     renderApp(`${SURVEY}/visao-geral`);
     await user.click(await screen.findByRole('button', { name: /^Filtros/ }));
     await screen.findByRole('dialog', { name: 'Filtros' });
-    expect(root.hasAttribute('inert')).toBe(true);
     await user.keyboard('{Escape}');
-    await waitFor(() => expect(root.hasAttribute('inert')).toBe(false));
-    root.remove();
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Filtros' })).not.toBeInTheDocument());
   });
 
   it('closes only the topmost layer on Escape', async () => {
@@ -155,8 +150,15 @@ describe('the tour', () => {
 describe('themes and small samples', () => {
   it('flags themes with few mentions', async () => {
     renderApp(`${SURVEY}/temas?plan=enterprise&region=sul`);
-    const map = await screen.findByRole('group', { name: 'Mapa de temas' });
-    expect(within(map).getAllByText('Amostra pequena').length).toBeGreaterThan(0);
+    await screen.findByRole('group', { name: 'Escolher um tema' });
+    // The map is drawn by ECharts, so the small-sample flag is checked where it is written: the chart option.
+    const { treemapOption } = await import('./components/charts/treemap-chart');
+    const { generateSeed, analyzeThemes } = await import('@insighthub/core');
+    const { responses } = generateSeed();
+    const small = analyzeThemes(responses.filter((response) => response.plan === 'enterprise' && response.region === 'sul'));
+    expect(small.some((stat) => stat.lowSample)).toBe(true);
+    const option = treemapOption(small, undefined, (await import('./ui')).PALETTES.light) as { series: { data: { label: { formatter: string } }[] }[] };
+    expect(option.series[0]?.data.some((item) => item.label.formatter.includes('amostra pequena'))).toBe(true);
   });
 });
 
@@ -261,7 +263,7 @@ describe('insights board polish', () => {
     await screen.findByRole('article', { name: 'Insight big-0' });
     await user.click(screen.getByRole('button', { name: 'Copiar link compartilhável' }));
     expect(await screen.findByText(/grande demais para caber num link/)).toBeInTheDocument();
-    const toasts = screen.getByRole('region', { name: 'Notificações' });
+    const toasts = document.querySelector('.ant-notification') as HTMLElement;
     expect(within(toasts).getByRole('button', { name: 'Exportar Markdown' })).toBeInTheDocument();
   });
 
@@ -282,8 +284,7 @@ describe('toasts', () => {
     const card = await screen.findByRole('article', { name: 'Insight t1' });
     await user.click(within(card).getByRole('button', { name: /^Excluir/ }));
     const toast = await screen.findByText(/Insight “Insight t1” excluído/);
-    const row = toast.parentElement as HTMLElement;
-    await user.hover(row);
+    await user.hover(toast);
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 300));
     });

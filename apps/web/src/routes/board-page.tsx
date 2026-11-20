@@ -1,53 +1,63 @@
-import {
-  decodeShare,
-  encodeShare,
-  isShareTooLarge,
-  insightsToCsv,
-  insightsToMarkdown,
-  type Insight,
-} from '@insighthub/core';
-import { Link } from '@tanstack/react-router';
-import { Download, FileText, Link2, Pencil, Sparkles, Trash2 } from 'lucide-react';
+import { decodeShare, encodeShare, isShareTooLarge, insightsToCsv, insightsToMarkdown, type Insight } from '@insighthub/core';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { Illustration } from '../components/illustrations';
-import { Reveal } from '../components/motion';
+import { NavButton } from '../components/nav-button';
 import { SynthesisText } from '../components/synthesis-text';
-import { useToast } from '../components/toast';
 import { getBoardStore, useBoard } from '../lib/board-store';
 import { downloadText } from '../lib/download';
 import { formatDateTime, plural } from '../lib/format';
 import { usePatchSearch, useSurveyId, useSurveySearch } from '../lib/use-survey-search';
+import {
+  AppButton,
+  AppCard,
+  AppCollapse,
+  AppEmpty,
+  AppForm,
+  AppFormItem,
+  AppGrid,
+  AppIconButton,
+  AppInput,
+  AppParagraph,
+  AppReveal,
+  AppStack,
+  AppTextArea,
+  AppTitle,
+  DeleteOutlined,
+  DownloadOutlined,
+  EditOutlined,
+  FileMarkdownOutlined,
+  LinkOutlined,
+  ThunderboltOutlined,
+  useToast,
+} from '../ui';
 
-function InsightCard({
-  insight,
-  index,
-  readOnly,
-  onOpenCitation,
-}: {
-  insight: Insight;
-  index: number;
-  readOnly?: boolean;
-  onOpenCitation: (id: string) => void;
-}) {
+const TITLE_MAX = 120;
+const NOTE_MAX = 1000;
+const UNDO_MS = 8000;
+
+interface EditValues {
+  title: string;
+  note?: string;
+}
+
+function InsightCard({ insight, index, readOnly, onOpenCitation }: { insight: Insight; index: number; readOnly?: boolean; onOpenCitation: (id: string) => void }) {
   const store = getBoardStore();
   const toast = useToast();
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(insight.title);
   const [note, setNote] = useState(insight.note);
-  const titleId = useId();
-  const noteId = useId();
-  const titleRef = useRef<HTMLInputElement>(null);
   const editRef = useRef<HTMLButtonElement>(null);
   const wasEditing = useRef(false);
+  const titleId = useId();
+  const noteId = useId();
   const verified = useMemo(() => new Set(insight.citations.map((c) => c.responseId)), [insight.citations]);
   const invalid = title.trim().length === 0;
 
   // Entering edit mode moves focus to the title; leaving it hands focus back to the Edit button.
   useEffect(() => {
-    if (editing) titleRef.current?.focus();
+    if (editing) document.getElementById(titleId)?.focus();
     else if (wasEditing.current) editRef.current?.focus();
     wasEditing.current = editing;
-  }, [editing]);
+  }, [editing, titleId]);
 
   function remove() {
     const position = store.get().findIndex((item) => item.id === insight.id);
@@ -55,93 +65,72 @@ function InsightCard({
     toast({
       message: `Insight “${insight.title}” excluído.`,
       kind: 'info',
-      durationMs: 8000,
+      durationMs: UNDO_MS,
       action: { label: 'Desfazer', onClick: () => store.restore(insight, Math.max(0, position)) },
     });
   }
 
+  function cancelEdit() {
+    setTitle(insight.title);
+    setNote(insight.note);
+    setEditing(false);
+  }
+
   return (
-    <Reveal index={index}>
-      <article className="card flex flex-col gap-4" aria-label={insight.title} data-editing={editing ? 'true' : undefined}>
-        {editing ? (
-          <form
-            className="flex flex-col gap-3"
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (invalid) return;
-              store.update(insight.id, { title: title.trim(), note: note.trim() });
-              setEditing(false);
-              toast({ message: 'Insight atualizado.' });
-            }}
-          >
-            <div>
-              <label htmlFor={titleId} className="label">
-                Título
-              </label>
-              <input id={titleId} ref={titleRef} className="field w-full" value={title} maxLength={120} aria-invalid={invalid} onChange={(e) => setTitle(e.target.value)} />
-              {invalid ? (
-                <p role="alert" className="m-0 mt-1 text-sm" style={{ color: 'var(--detractor)' }}>
-                  O título não pode ficar vazio.
-                </p>
-              ) : null}
-            </div>
-            <div>
-              <label htmlFor={noteId} className="label">
-                Nota
-              </label>
-              <textarea id={noteId} className="field w-full" rows={3} maxLength={1000} value={note} onChange={(e) => setNote(e.target.value)} />
-            </div>
-            <div className="flex gap-2">
-              <button type="submit" className="btn btn-primary btn-sm" disabled={invalid}>
-                Salvar alterações
-              </button>
-              <button
-                type="button"
-                className="btn btn-sm"
-                onClick={() => {
-                  setTitle(insight.title);
-                  setNote(insight.note);
-                  setEditing(false);
-                }}
-              >
-                Cancelar
-              </button>
-            </div>
-          </form>
-        ) : (
-          <header className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="eyebrow">
-                {insight.question} · {formatDateTime(insight.createdAt)}
-              </p>
-              <h2 className="display m-0 mt-1 text-2xl">{insight.title}</h2>
-              <p className="m-0 mt-1 text-sm text-muted">
-                {insight.surveyTitle} · {insight.scope}
-              </p>
-            </div>
-            {readOnly ? null : (
-              <div className="flex shrink-0 gap-1">
-                <button type="button" ref={editRef} className="btn btn-sm btn-icon" aria-label={`Editar ${insight.title}`} onClick={() => setEditing(true)}>
-                  <Pencil aria-hidden="true" size={15} />
-                </button>
-                <button type="button" className="btn btn-sm btn-icon btn-danger" aria-label={`Excluir ${insight.title}`} onClick={remove}>
-                  <Trash2 aria-hidden="true" size={15} />
-                </button>
+    <AppReveal index={index}>
+      <AppCard role="article" aria-label={insight.title} data-editing={editing ? 'true' : undefined} fullHeight>
+        <AppStack gap={4}>
+          {editing ? (
+            <AppForm<EditValues>
+              name={`edit-${insight.id}`}
+              onSubmit={() => {
+                if (invalid) return;
+                store.update(insight.id, { title: title.trim(), note: note.trim() });
+                setEditing(false);
+                toast({ message: 'Insight atualizado.' });
+              }}
+            >
+              <AppFormItem label="Título" htmlFor={titleId} validateStatus={invalid ? 'error' : undefined} help={invalid ? <span role="alert">O título não pode ficar vazio.</span> : undefined}>
+                <AppInput id={titleId} value={title} maxLength={TITLE_MAX} error={invalid} onChange={(event) => setTitle(event.target.value)} />
+              </AppFormItem>
+              <AppFormItem label="Nota" htmlFor={noteId}>
+                <AppTextArea id={noteId} rows={3} maxLength={NOTE_MAX} value={note} onChange={(event) => setNote(event.target.value)} />
+              </AppFormItem>
+              <div className="ih-row ih-gap-2">
+                <AppButton variant="primary" size="sm" htmlType="submit" disabled={invalid}>
+                  Salvar alterações
+                </AppButton>
+                <AppButton size="sm" onClick={cancelEdit}>
+                  Cancelar
+                </AppButton>
               </div>
-            )}
-          </header>
-        )}
-        {!editing && insight.note ? (
-          <p className="m-0 rounded-xl border-l-4 border-accent bg-accent-soft p-3 text-sm">{insight.note}</p>
-        ) : null}
-        <details className="group">
-          <summary className="cursor-pointer text-sm font-semibold text-promoter">Ler a síntese completa</summary>
-          <div className="mt-3">
+            </AppForm>
+          ) : (
+            <header className="ih-row ih-between ih-start ih-gap-3 ih-nowrap">
+              <div className="ih-fill">
+                <p className="ih-eyebrow">
+                  {insight.question} · {formatDateTime(insight.createdAt)}
+                </p>
+                <AppTitle level={2}>{insight.title}</AppTitle>
+                <AppParagraph tone="muted" small>
+                  {insight.surveyTitle} · {insight.scope}
+                </AppParagraph>
+              </div>
+              {readOnly ? null : (
+                <div className="ih-row ih-gap-1 ih-nowrap">
+                  <AppIconButton buttonRef={editRef} label={`Editar ${insight.title}`} icon={<EditOutlined />} onClick={() => setEditing(true)} />
+                  <AppIconButton label={`Excluir ${insight.title}`} icon={<DeleteOutlined />} danger onClick={remove} />
+                </div>
+              )}
+            </header>
+          )}
+          {!editing && insight.note ? <p className="ih-note">{insight.note}</p> : null}
+          <AppCollapse label="Ler a síntese completa">
             <SynthesisText text={insight.body} verifiedIds={verified} onOpenCitation={onOpenCitation} />
-          </div>
-        </details>
-      </article>
-    </Reveal>
+          </AppCollapse>
+        </AppStack>
+      </AppCard>
+    </AppReveal>
   );
 }
 
@@ -153,6 +142,12 @@ export function BoardPage() {
   const board = useBoard();
   const shared = useMemo(() => (search.share ? decodeShare(search.share) : []), [search.share]);
   const openCitation = (id: string) => patch({ r: id });
+  const stamp = new Date().toISOString().slice(0, 10);
+
+  function exportMarkdown() {
+    downloadText(`insights-${stamp}.md`, insightsToMarkdown(getBoardStore().get()), 'text/markdown');
+    toast({ message: 'Markdown exportado.' });
+  }
 
   async function copyShareLink() {
     const base = window.location.href.split('#')[0];
@@ -178,119 +173,100 @@ export function BoardPage() {
   function importShared() {
     const added = getBoardStore().merge(shared);
     patch({ share: undefined });
-    toast({
-      message:
-        added === 0
-          ? 'Todos esses insights já estavam no seu quadro.'
-          : `${plural(added, 'insight importado', 'insights importados')} para o seu quadro.`,
-    });
-  }
-
-  const stamp = new Date().toISOString().slice(0, 10);
-
-  function exportMarkdown() {
-    downloadText(`insights-${stamp}.md`, insightsToMarkdown(getBoardStore().get()), 'text/markdown');
-    toast({ message: 'Markdown exportado.' });
+    toast({ message: added === 0 ? 'Todos esses insights já estavam no seu quadro.' : `${plural(added, 'insight importado', 'insights importados')} para o seu quadro.` });
   }
 
   return (
-    <div className="flex flex-col gap-5">
+    <AppStack gap={5}>
       {search.share ? (
-        <section aria-label="Quadro compartilhado" className="card flex flex-col gap-3 border-primary">
+        <AppCard role="region" aria-label="Quadro compartilhado">
           {shared.length === 0 ? (
-            <>
-              <h2 className="display m-0 text-xl">Link de quadro inválido</h2>
-              <p className="m-0 text-sm text-muted">Este link está incompleto ou foi alterado, por isso nada foi importado.</p>
+            <AppStack gap={3}>
+              <AppTitle level={2}>Link de quadro inválido</AppTitle>
+              <AppParagraph tone="muted">Este link está incompleto ou foi alterado, por isso nada foi importado. Peça um novo link a quem compartilhou.</AppParagraph>
               <div>
-                <button type="button" className="btn btn-sm" onClick={() => patch({ share: undefined })}>
+                <AppButton size="sm" onClick={() => patch({ share: undefined })}>
                   Fechar aviso
-                </button>
+                </AppButton>
               </div>
-            </>
+            </AppStack>
           ) : (
-            <>
-              <h2 className="display m-0 text-xl">
+            <AppStack gap={3}>
+              <AppTitle level={2}>
                 Quadro compartilhado com você: {shared.length} {shared.length === 1 ? 'insight' : 'insights'}
-              </h2>
-              <ul className="m-0 list-disc pl-5 text-sm text-muted">
+              </AppTitle>
+              <ul style={{ margin: 0, paddingLeft: 'var(--ih-space-5)' }} className="ih-muted">
                 {shared.map((insight) => (
                   <li key={insight.id}>{insight.title}</li>
                 ))}
               </ul>
-              <div className="flex flex-wrap gap-2">
-                <button type="button" className="btn btn-primary btn-sm" onClick={importShared}>
+              <div className="ih-row ih-gap-2">
+                <AppButton variant="primary" size="sm" onClick={importShared}>
                   Importar para o meu quadro
-                </button>
-                <button type="button" className="btn btn-sm" onClick={() => patch({ share: undefined })}>
+                </AppButton>
+                <AppButton size="sm" onClick={() => patch({ share: undefined })}>
                   Descartar
-                </button>
+                </AppButton>
               </div>
-            </>
+            </AppStack>
           )}
-        </section>
+        </AppCard>
       ) : null}
 
       {shared.length > 0 ? (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2" aria-label="Prévia do quadro compartilhado" role="group">
+        <AppGrid columns={{ base: 1, lg: 2 }} role="group" aria-label="Prévia do quadro compartilhado">
           {shared.map((insight, index) => (
             <InsightCard key={`shared-${insight.id}`} insight={insight} index={index} readOnly onOpenCitation={openCitation} />
           ))}
-        </div>
+        </AppGrid>
       ) : null}
 
       {board.length === 0 && shared.length === 0 ? (
-        <section className="card flex flex-col items-center gap-2 py-12 text-center" aria-label="Quadro vazio">
-          <Illustration name="board" />
-          <h2 className="display m-0 mt-2 text-2xl">Seu quadro está vazio</h2>
-          <p className="m-0 max-w-md text-muted">
-            Gere uma síntese, leia com calma e salve o que merece virar decisão. Os insights ficam aqui, com as fontes.
-          </p>
-          <div className="mt-3">
-            <Link to="/s/$surveyId/sintese" params={{ surveyId }} search={{} as never} className="btn btn-primary">
-              <Sparkles aria-hidden="true" size={16} />
-              Ir para a Síntese
-            </Link>
-          </div>
-        </section>
+        <AppCard role="region" aria-label="Quadro vazio">
+          <AppEmpty
+            framed={false}
+            illustration="board"
+            title="Seu quadro está vazio"
+            description="Gere uma síntese, leia com calma e salve o que merece virar decisão. Os insights ficam aqui, com as fontes."
+            action={
+              <NavButton variant="primary" icon={<ThunderboltOutlined />} to="/s/$surveyId/sintese" params={{ surveyId }} search={{}}>
+                Ir para a Síntese
+              </NavButton>
+            }
+          />
+        </AppCard>
       ) : board.length === 0 ? null : (
         <>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="m-0 text-sm text-muted" aria-live="polite">
+          <div className="ih-row ih-between ih-gap-3">
+            <p className="ih-muted" aria-live="polite" style={{ margin: 0 }}>
               {board.length} {board.length === 1 ? 'insight salvo' : 'insights salvos'} neste navegador
             </p>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                className="btn btn-sm"
-                onClick={exportMarkdown}
-              >
-                <FileText aria-hidden="true" size={15} />
+            <div className="ih-row ih-gap-2">
+              <AppButton size="sm" icon={<FileMarkdownOutlined />} onClick={exportMarkdown}>
                 Exportar Markdown
-              </button>
-              <button
-                type="button"
-                className="btn btn-sm"
+              </AppButton>
+              <AppButton
+                size="sm"
+                icon={<DownloadOutlined />}
                 onClick={() => {
                   downloadText(`insights-${stamp}.csv`, `\uFEFF${insightsToCsv(board)}`, 'text/csv');
                   toast({ message: 'CSV exportado.' });
                 }}
               >
-                <Download aria-hidden="true" size={15} />
                 Exportar CSV
-              </button>
-              <button type="button" className="btn btn-sm" onClick={() => void copyShareLink()}>
-                <Link2 aria-hidden="true" size={15} />
+              </AppButton>
+              <AppButton size="sm" icon={<LinkOutlined />} onClick={() => void copyShareLink()}>
                 Copiar link compartilhável
-              </button>
+              </AppButton>
             </div>
           </div>
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <AppGrid columns={{ base: 1, lg: 2 }}>
             {board.map((insight, index) => (
               <InsightCard key={insight.id} insight={insight} index={index} onOpenCitation={openCitation} />
             ))}
-          </div>
+          </AppGrid>
         </>
       )}
-    </div>
+    </AppStack>
   );
 }

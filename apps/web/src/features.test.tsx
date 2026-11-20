@@ -49,8 +49,8 @@ describe('themes', () => {
   it('drills down from a tile to the quotes and lets you go to the table', async () => {
     const user = userEvent.setup();
     const { router } = renderApp(`${SURVEY}/temas`);
-    const map = await screen.findByRole('group', { name: 'Mapa de temas' });
-    const tile = within(map).getAllByRole('button')[0] as HTMLElement;
+    const picker = await screen.findByRole('group', { name: 'Escolher um tema' });
+    const tile = within(picker).getAllByRole('button')[0] as HTMLElement;
     await user.click(tile);
     await waitFor(() => expect((searchOf(router) as { t?: string }).t).toBeDefined());
     const detail = await screen.findByRole('region', { name: /^Detalhe do tema/ });
@@ -73,7 +73,8 @@ describe('filters', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Filtros' });
     await user.click(await within(dialog).findByRole('checkbox', { name: /^Preço/ }));
     await waitFor(() => expect((searchOf(router) as { theme?: string }).theme).toBe('preço'));
-    fireDate(within(dialog).getByLabelText('De'), '2026-08-10');
+    const from = await within(dialog).findByLabelText('De');
+    await user.type(from, '10/08/2026{Enter}');
     await waitFor(() => expect((searchOf(router) as { from?: string }).from).toBe('2026-08-10'));
     expect(screen.getByRole('button', { name: 'Remover filtro Tema: Preço' })).toBeInTheDocument();
   });
@@ -87,17 +88,11 @@ describe('filters', () => {
   });
 });
 
-function fireDate(input: HTMLElement, value: string) {
-  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
-  setter?.call(input, value);
-  input.dispatchEvent(new Event('input', { bubbles: true }));
-}
-
 describe('synthesis question templates', () => {
   it('reads only detractors for the "Por que há detratores?" question', async () => {
     const user = userEvent.setup();
     const { router } = renderApp(`${SURVEY}/sintese`);
-    await user.click(await screen.findByRole('radio', { name: /Por que há detratores/ }));
+    await user.click(await screen.findByText(/Por que há detratores/));
     await waitFor(() => expect((searchOf(router) as { tpl?: string }).tpl).toBe('detractors'));
     await user.click(screen.getByRole('button', { name: 'Gerar síntese' }));
     expect(await screen.findByText(/Síntese concluída/)).toBeInTheDocument();

@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { renderApp } from './test/render-app';
 
 type AppRouter = ReturnType<typeof renderApp>['router'];
@@ -9,6 +9,11 @@ type AppRouter = ReturnType<typeof renderApp>['router'];
 function searchOf(router: AppRouter) {
   return router.state.matches[router.state.matches.length - 1]?.search ?? {};
 }
+
+// Warm the lazily loaded table chunk once, so a slow first transform never eats a test's time budget.
+beforeAll(async () => {
+  await import('./components/charts/chart-tables');
+}, 120_000);
 
 const SURVEY = '/s/s-atlas-q3';
 const TABLE_NAME = 'Respostas da pesquisa';
@@ -64,7 +69,7 @@ describe('filters in the URL', () => {
     const user = userEvent.setup();
     const { router } = renderApp(`${SURVEY}/respostas`);
     await screen.findByRole('table', { name: TABLE_NAME });
-    await user.click(screen.getByRole('button', { name: 'Próxima' }));
+    await user.click(screen.getByRole('button', { name: 'Próxima página' }));
     await waitFor(() => expect(searchOf(router)).toEqual({ page: 2 }));
     expect(await screen.findByText(/página 2 de/)).toBeInTheDocument();
   });
@@ -86,20 +91,20 @@ describe('screen states', () => {
   it('shows an error and recovers with "Tentar de novo"', async () => {
     const user = userEvent.setup();
     const { client } = renderApp(`${SURVEY}/comparar`);
-    await screen.findByRole('list', { name: /NPS por plano/ });
+    await screen.findByRole('img', { name: /NPS por plano/ });
     // Only the comparison query runs when the dimension changes, so the simulated failure hits it.
     client.faults.setMode('fail-next');
-    await user.click(screen.getByRole('button', { name: 'Região' }));
+    await user.click(screen.getByRole('tab', { name: 'Região' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Falha simulada');
     await user.click(screen.getByRole('button', { name: 'Tentar de novo' }));
-    expect(await screen.findByRole('list', { name: /NPS por região/ })).toBeInTheDocument();
+    expect(await screen.findByRole('img', { name: /NPS por região/ })).toBeInTheDocument();
   });
 
   it('shows a partial result on the responses table', async () => {
     const { client } = renderApp(`${SURVEY}/respostas`);
     await screen.findByRole('table', { name: TABLE_NAME });
     client.faults.setMode('partial');
-    await userEvent.click(screen.getByRole('button', { name: 'Próxima' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Próxima página' }));
     expect(await screen.findByText(/Foram carregadas 10 de 20 linhas/)).toBeInTheDocument();
     expect(bodyRows()).toHaveLength(10);
   });
@@ -116,9 +121,9 @@ describe('screen states', () => {
     const user = userEvent.setup();
     renderApp(`${SURVEY}/visao-geral`);
     await screen.findByRole('img', { name: /Distribuição das 640 notas/ });
-    const group = screen.getByRole('group', { name: 'Formato de Distribuição das notas' });
-    await user.click(within(group).getByRole('button', { name: 'Tabela' }));
-    expect(screen.getByRole('table', { name: 'Quantidade de respostas por nota' })).toBeInTheDocument();
+    const group = screen.getByRole('radiogroup', { name: 'Formato de Distribuição das notas' });
+    await user.click(within(group).getByText('Tabela'));
+    expect(await screen.findByRole('table', { name: 'Quantidade de respostas por nota' })).toBeInTheDocument();
   });
 
   it('warns about small samples when comparing segments', async () => {
@@ -140,7 +145,7 @@ describe('synthesis', () => {
     })[0] as HTMLElement;
     await user.click(citation);
     const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByRole('heading', { name: /^Resposta atla-/ })).toBeInTheDocument();
+    expect(dialog).toHaveAccessibleName(/^Resposta atla-/);
     expect((searchOf(router) as { r?: string }).r).toMatch(/^atla-/);
     await user.keyboard('{Escape}');
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());

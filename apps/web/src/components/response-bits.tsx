@@ -1,45 +1,34 @@
 import { classifyNps, detectThemes, normalizeText, THEME_LABELS } from '@insighthub/core';
-import { Frown, Meh, Smile } from 'lucide-react';
 import { NPS_SINGULAR } from '../lib/labels';
 import { personOf } from '../lib/people';
+import { AppAvatar, AppStatus, AppTag } from '../ui';
 
-const CATEGORY_ICON = { promoter: Smile, passive: Meh, detractor: Frown } as const;
+const SIZE_FOR = (size: number) => (size <= 32 ? 'sm' : size <= 40 ? 'md' : 'lg');
 
 /** Colored initials for a fictional respondent. */
 export function Avatar({ respondentId, size = 36 }: { respondentId: string; size?: number }) {
   const person = personOf(respondentId);
   return (
-    <span
-      aria-hidden="true"
-      className="inline-grid shrink-0 place-items-center rounded-full font-semibold text-white"
-      style={{ width: size, height: size, background: person.tone, fontSize: size * 0.38 }}
-    >
+    <AppAvatar size={SIZE_FOR(size)} background={person.tone}>
       {person.initials}
-    </span>
+    </AppAvatar>
   );
 }
 
 /** Score with an icon and a word: the NPS band never relies on color alone. */
 export function ScoreBadge({ score }: { score: number }) {
   const category = classifyNps(score);
-  const Icon = CATEGORY_ICON[category];
-  return (
-    <span className={`badge badge-${category}`}>
-      <Icon aria-hidden="true" size={13} />
-      <span className="tabular-nums">{score}</span>
-      <span className="font-medium">{NPS_SINGULAR[category]}</span>
-    </span>
-  );
+  return <AppStatus status={category} value={score} label={NPS_SINGULAR[category]} />;
 }
 
 export function ThemeChips({ comment }: { comment: string }) {
   const themes = detectThemes(comment);
   if (themes.length === 0) return null;
   return (
-    <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0" aria-label="Temas citados">
+    <ul className="ih-row ih-gap-1" aria-label="Temas citados" style={{ margin: 0, padding: 0, listStyle: 'none' }}>
       {themes.map((theme) => (
-        <li key={theme} className="badge text-xs">
-          {THEME_LABELS[theme]}
+        <li key={theme}>
+          <AppTag>{THEME_LABELS[theme]}</AppTag>
         </li>
       ))}
     </ul>
@@ -80,7 +69,7 @@ export function HighlightText({ text, term }: { text: string; term: string | und
   for (const [start, end] of ranges) {
     if (start > cursor) parts.push(text.slice(cursor, start));
     parts.push(
-      <mark key={start} className="rounded-sm px-0.5" style={{ background: 'var(--warn-bg)', color: 'var(--warn-fg)', boxShadow: '0 0 0 1px var(--warn-line)' }}>
+      <mark key={start} className="ih-mark">
         {text.slice(start, end)}
       </mark>,
     );

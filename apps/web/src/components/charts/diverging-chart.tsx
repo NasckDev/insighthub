@@ -1,7 +1,93 @@
 import type { SegmentDelta, SegmentDimension } from '@insighthub/core';
-import { TriangleAlert } from 'lucide-react';
+import { useMemo } from 'react';
 import { formatNps, formatNumber, formatPoints } from '../../lib/format';
 import { segmentLabel } from '../../lib/labels';
+import { AppChart, FONT_SANS, type AppChartOption, type Palette } from '../../ui';
+import { tooltipBox, useChartPalette } from './chart-theme';
+
+const MIN_SPAN = 10;
+const ROW_HEIGHT = 58;
+const AXIS_PADDING = 56;
+
+const DIMENSION_WORD: Record<SegmentDimension, string> = { plan: 'plano', region: 'região', role: 'função' };
+
+/** Diagonal stripes: the "small sample" cue that does not depend on color. */
+const STRIPES = { symbol: 'rect', rotation: Math.PI / 4, dashArrayX: [1, 0], dashArrayY: [5, 4], color: 'rgba(255,255,255,0.65)' } as const;
+
+export function divergingOption(stats: readonly SegmentDelta[], dimension: SegmentDimension, p: Palette): AppChartOption {
+  const span = Math.max(MIN_SPAN, ...stats.map((stat) => Math.abs(stat.delta)));
+  const bound = Math.ceil(span / 5) * 5;
+  const names = stats.map((stat) => segmentLabel(dimension, stat.segment));
+  return {
+    grid: { left: 8, right: 32, top: 8, bottom: 24, containLabel: true },
+    tooltip: {
+      ...tooltipBox(p),
+      trigger: 'item',
+      formatter: ({ dataIndex }: { dataIndex: number }) => {
+        const stat = stats[dataIndex];
+        if (!stat) return '';
+        const small = stat.lowSample ? `<div style="color:${p.warnFg};font-size:12px;margin-top:4px">Amostra pequena: o NPS varia muito com poucos dados</div>` : '';
+        return `<div style="font-size:12px;color:${p.muted}">${names[dataIndex] ?? ''}</div><div style="font-family:'Fraunces Variable',serif;font-size:22px;font-weight:600">NPS ${formatNps(stat.nps)}</div><div style="font-size:12px;color:${p.muted}">${formatPoints(stat.delta)} em relação ao geral · ${formatNumber(stat.count)} respostas</div>${small}`;
+      },
+    },
+    xAxis: {
+      type: 'value',
+      min: -bound,
+      max: bound,
+      splitNumber: 4,
+      axisLabel: { color: p.muted, fontFamily: FONT_SANS, fontSize: 11, formatter: (value: number) => formatNps(value) },
+      splitLine: { lineStyle: { color: p.line, type: 'dashed' } },
+      name: '← abaixo do geral · acima do geral →',
+      nameLocation: 'middle',
+      nameGap: 28,
+      nameTextStyle: { color: p.muted, fontFamily: FONT_SANS, fontSize: 12, fontWeight: 600 },
+    },
+    yAxis: {
+      type: 'category',
+      inverse: true,
+      data: names,
+      axisTick: { show: false },
+      axisLine: { show: false },
+      axisLabel: {
+        color: p.fg,
+        fontFamily: FONT_SANS,
+        fontSize: 13,
+        fontWeight: 600,
+        lineHeight: 18,
+        formatter: (name: string, index: number) => {
+          const stat = stats[index];
+          if (!stat) return name;
+          return `{n|${name}}\n{c|n = ${formatNumber(stat.count)}${stat.lowSample ? ' · amostra pequena' : ''}}`;
+        },
+        rich: { n: { color: p.fg, fontWeight: 600, fontSize: 13, fontFamily: FONT_SANS }, c: { color: p.muted, fontSize: 11, fontFamily: FONT_SANS } },
+      },
+    },
+    series: [
+      {
+        type: 'bar',
+        barWidth: 22,
+        data: stats.map((stat) => {
+          const color = stat.delta >= 0 ? p.promoterBar : p.detractorBar;
+          return {
+            value: stat.delta,
+            itemStyle: { color, borderRadius: stat.delta >= 0 ? [0, 6, 6, 0] : [6, 0, 0, 6], ...(stat.lowSample ? { decal: STRIPES, borderColor: color, borderWidth: 1.5 } : {}) },
+          };
+        }),
+        label: {
+          show: true,
+          position: 'outside',
+          fontFamily: FONT_SANS,
+          fontWeight: 700,
+          fontSize: 12,
+          color: p.fg,
+          formatter: ({ value }: { value: number }) => formatPoints(value),
+        },
+        markLine: { silent: true, symbol: 'none', label: { show: false }, lineStyle: { color: p.controlLine, width: 1.5, type: 'solid' }, data: [{ xAxis: 0 }] },
+        animationDuration: 700,
+      },
+    ],
+  };
+}
 
 interface DivergingChartProps {
   stats: SegmentDelta[];
@@ -9,114 +95,18 @@ interface DivergingChartProps {
   overallNps: number;
 }
 
-/**
- * Horizontal bars diverging from the overall NPS: right (teal) is above the average, left
- * (coral) below. Segments with a small sample are hatched and flagged, never hidden.
- */
+/** Horizontal bars diverging from the overall NPS; segments with a small sample are striped and named. */
 export function DivergingChart({ stats, dimension, overallNps }: DivergingChartProps) {
-  const span = Math.max(10, ...stats.map((stat) => Math.abs(stat.delta)));
+  const palette = useChartPalette();
+  const option = useMemo(() => divergingOption(stats, dimension, palette), [stats, dimension, palette]);
+  const description = stats
+    .map((stat) => `${segmentLabel(dimension, stat.segment)}: NPS ${formatNps(stat.nps)}, ${formatPoints(stat.delta)} em relação ao geral, ${formatNumber(stat.count)} respostas${stat.lowSample ? ', amostra pequena' : ''}`)
+    .join('; ');
   return (
-    <div className="flex flex-col gap-1">
-      <div className="grid grid-cols-[88px_1fr] items-end gap-3 text-xs font-semibold text-muted sm:grid-cols-[120px_1fr_150px]">
-        <span />
-        <div className="flex justify-between">
-          <span>← abaixo do geral</span>
-          <span>acima do geral →</span>
-        </div>
-        <span className="max-sm:hidden" />
-      </div>
-      <ul className="m-0 flex list-none flex-col gap-2 p-0" aria-label={`NPS por ${dimension === 'plan' ? 'plano' : dimension === 'region' ? 'região' : 'função'}, comparado ao geral de ${formatNps(overallNps)}`}>
-        {stats.map((stat, index) => {
-          const share = (Math.abs(stat.delta) / span) * 38;
-          const positive = stat.delta >= 0;
-          const name = segmentLabel(dimension, stat.segment);
-          return (
-            <li
-              key={stat.segment}
-              className="grid grid-cols-[88px_1fr] items-center gap-x-3 gap-y-1 sm:grid-cols-[120px_1fr_150px]"
-            >
-              <span className="text-sm font-semibold">{name}</span>
-              <div
-                className="relative h-9 rounded-lg bg-surface-2"
-                role="img"
-                aria-label={`${name}: NPS ${formatNps(stat.nps)}, ${formatPoints(stat.delta)} em relação ao geral, ${formatNumber(stat.count)} respostas${stat.lowSample ? ', amostra pequena' : ''}`}
-              >
-                <span aria-hidden="true" className="absolute inset-y-0 left-1/2 w-px bg-control-line" />
-                <span
-                  aria-hidden="true"
-                  className="grow-x absolute inset-y-1.5 rounded-md"
-                  style={{
-                    [positive ? 'left' : 'right']: '50%',
-                    width: `${Math.max(share, 0.8)}%`,
-                    transformOrigin: positive ? 'left' : 'right',
-                    animationDelay: `${index * 70}ms`,
-                    background: stat.lowSample
-                      ? `repeating-linear-gradient(135deg, ${positive ? 'var(--promoter-bar)' : 'var(--detractor-bar)'} 0 5px, transparent 5px 9px)`
-                      : positive
-                        ? 'var(--promoter-bar)'
-                        : 'var(--detractor-bar)',
-                    outline: stat.lowSample ? `1.5px solid ${positive ? 'var(--promoter-bar)' : 'var(--detractor-bar)'}` : undefined,
-                  }}
-                />
-                <span
-                  className="absolute top-1/2 -translate-y-1/2 text-[13px] font-bold tabular-nums"
-                  style={{
-                    [positive ? 'left' : 'right']: `calc(50% + ${share}% + 8px)`,
-                    color: positive ? 'var(--promoter)' : 'var(--detractor)',
-                  }}
-                >
-                  {formatPoints(stat.delta)}
-                </span>
-              </div>
-              <span className="col-span-2 flex flex-wrap items-center gap-x-2 gap-y-0.5 pl-[100px] text-xs text-muted sm:col-span-1 sm:pl-0">
-                <span className="tabular-nums">
-                  NPS <strong className="text-fg">{formatNps(stat.nps)}</strong> · n = {formatNumber(stat.count)}
-                </span>
-                {stat.lowSample ? (
-                  <span className="badge badge-passive">
-                    <TriangleAlert aria-hidden="true" size={12} />
-                    Amostra pequena
-                  </span>
-                ) : null}
-              </span>
-            </li>
-          );
-        })}
-      </ul>
-    </div>
-  );
-}
-
-export function SegmentTable({ stats, dimension }: { stats: SegmentDelta[]; dimension: SegmentDimension }) {
-  return (
-    <table className="data-table" aria-label="NPS por segmento">
-      <thead>
-        <tr>
-          <th scope="col">Segmento</th>
-          <th scope="col">Respostas</th>
-          <th scope="col">NPS</th>
-          <th scope="col">Diferença</th>
-          <th scope="col">Promotores</th>
-          <th scope="col">Neutros</th>
-          <th scope="col">Detratores</th>
-        </tr>
-      </thead>
-      <tbody>
-        {stats.map((stat) => (
-          <tr key={stat.segment}>
-            <th scope="row">
-              {segmentLabel(dimension, stat.segment)}
-              {stat.lowSample ? <span className="badge badge-passive ml-2">Amostra pequena</span> : null}
-            </th>
-            <td className="tabular-nums">{formatNumber(stat.count)}</td>
-            <td className="tabular-nums">{formatNps(stat.nps)}</td>
-            <td className="tabular-nums">{formatPoints(stat.delta)}</td>
-            <td className="tabular-nums">{stat.promoters}%</td>
-            <td className="tabular-nums">{stat.passives}%</td>
-            <td className="tabular-nums">{stat.detractors}%</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <AppChart
+      option={option}
+      height={stats.length * ROW_HEIGHT + AXIS_PADDING}
+      label={`NPS por ${DIMENSION_WORD[dimension]}, comparado ao geral de ${formatNps(overallNps)}. ${description}`}
+    />
   );
 }

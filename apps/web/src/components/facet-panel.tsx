@@ -18,6 +18,7 @@ import { formatNumber } from '../lib/format';
 import { NPS_LABELS, PLAN_LABELS, REGION_LABELS, ROLE_LABELS } from '../lib/labels';
 import { filtersOf, type SurveySearch } from '../lib/search';
 import { usePatchSearch, useSurveyId, useSurveySearch } from '../lib/use-survey-search';
+import { AppAlert, AppCheckbox, AppDatePicker, AppGrid, AppStack } from '../ui';
 import { useClient } from './app-context';
 
 export function toggled<T extends string>(list: readonly T[] | undefined, value: T): T[] | undefined {
@@ -37,32 +38,16 @@ interface GroupProps<T extends string> {
 
 function CheckGroup<T extends string>({ legend, options, labels, counts, selected, onToggle }: GroupProps<T>) {
   return (
-    <fieldset className="m-0 min-w-0 border-0 p-0">
-      <legend className="eyebrow mb-1.5 p-0">{legend}</legend>
-      <div className="flex flex-col">
+    <fieldset className="ih-fieldset">
+      <legend className="ih-eyebrow ih-legend-title">{legend}</legend>
+      <div className="ih-stack">
         {options.map((option) => {
           const count = counts?.[option];
           const checked = selected?.includes(option) ?? false;
           return (
-            <label
-              key={option}
-              className="flex min-h-9 cursor-pointer items-center gap-2.5 rounded-lg px-1.5 text-sm hover:bg-surface-2 pointer-coarse:min-h-11"
-            >
-              <input
-                type="checkbox"
-                className="h-4 w-4 accent-[var(--primary)]"
-                checked={checked}
-                onChange={() => onToggle(option)}
-              />
-              <span className="flex-1">{labels[option]}</span>
-              {count !== undefined ? (
-                <span
-                  className={`text-xs tabular-nums ${count === 0 && !checked ? 'text-muted opacity-70' : 'text-muted'}`}
-                >
-                  {formatNumber(count)}
-                </span>
-              ) : null}
-            </label>
+            <AppCheckbox key={option} checked={checked} onChange={() => onToggle(option)} extra={count !== undefined ? formatNumber(count) : undefined}>
+              {labels[option]}
+            </AppCheckbox>
           );
         })}
       </div>
@@ -91,7 +76,7 @@ export function FacetPanel({ className = '' }: { className?: string }) {
   const toId = `${uid}-to`;
 
   return (
-    <div className={`flex flex-col gap-5 ${className}`}>
+    <AppStack gap={5} className={className}>
       <CheckGroup<NpsCategory>
         legend="Categoria NPS"
         options={NPS_CATEGORIES}
@@ -132,42 +117,28 @@ export function FacetPanel({ className = '' }: { className?: string }) {
         selected={search.theme ? [search.theme] : undefined}
         onToggle={(value) => apply({ theme: search.theme === value ? undefined : value })}
       />
-      <fieldset className="m-0 min-w-0 border-0 p-0">
-        <legend className="eyebrow mb-1.5 p-0">Período de envio</legend>
-        <div className="grid grid-cols-2 gap-2">
+      <fieldset className="ih-fieldset">
+        <legend className="ih-eyebrow ih-legend-title">Período de envio</legend>
+        <AppGrid columns={{ base: 2 }} tight>
           <div>
-            <label htmlFor={fromId} className="label">
+            <label htmlFor={fromId} className="ih-label">
               De
             </label>
-            <input
-              id={fromId}
-              type="date"
-              className="field w-full"
-              value={search.from ?? ''}
-              max={search.to}
-              onChange={(event) => apply({ from: event.target.value || undefined })}
-            />
+            <AppDatePicker id={fromId} value={search.from} max={search.to} onChange={(value) => apply({ from: value })} />
           </div>
           <div>
-            <label htmlFor={toId} className="label">
+            <label htmlFor={toId} className="ih-label">
               Até
             </label>
-            <input
-              id={toId}
-              type="date"
-              className="field w-full"
-              value={search.to ?? ''}
-              min={search.from}
-              onChange={(event) => apply({ to: event.target.value || undefined })}
-            />
+            <AppDatePicker id={toId} value={search.to} min={search.from} onChange={(value) => apply({ to: value })} />
           </div>
-        </div>
+        </AppGrid>
         {isInvertedRange(search) ? (
-          <p role="alert" className="m-0 mt-2 text-sm" style={{ color: 'var(--detractor)' }}>
-            A data inicial é depois da final, então o período está sendo ignorado. Ajuste uma das datas.
-          </p>
+          <div style={{ marginTop: 'var(--ih-space-2)' }}>
+            <AppAlert kind="warning" live="alert" title="A data inicial é depois da final, então o período está sendo ignorado. Ajuste uma das datas." />
+          </div>
         ) : null}
       </fieldset>
-    </div>
+    </AppStack>
   );
 }

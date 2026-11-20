@@ -1,87 +1,75 @@
-import { NPS_ZONES, zoneOf } from '../../lib/nps-zones';
+import { useMemo } from 'react';
 import { formatNps } from '../../lib/format';
-import { CountUp } from '../motion';
+import { NPS_ZONES, zoneOf } from '../../lib/nps-zones';
+import { AppChart, FONT_DISPLAY, type AppChartOption, type Palette } from '../../ui';
+import { useChartPalette, withAlpha } from './chart-theme';
+
+const TONE_KEY = { detractor: 'detractorBar', passive: 'passiveBar', promoter: 'promoterBar' } as const;
+const TEXT_KEY = { detractor: 'detractor', passive: 'passive', promoter: 'promoter' } as const;
+const SCALE = 200;
+
+export function npsGaugeOption(value: number, p: Palette): AppChartOption {
+  const zone = zoneOf(value);
+  const bar = p[TONE_KEY[zone.tone]];
+  return {
+    series: [
+      {
+        type: 'gauge',
+        min: -100,
+        max: 100,
+        startAngle: 180,
+        endAngle: 0,
+        center: ['50%', '86%'],
+        radius: '128%',
+        splitNumber: 4,
+        // The four reading bands as soft tints; the value arc below repaints the part up to the score.
+        axisLine: {
+          lineStyle: {
+            width: 18,
+            color: NPS_ZONES.map((item) => [(item.to + 100) / SCALE, withAlpha(p[TONE_KEY[item.tone]], 0.3)]),
+          },
+        },
+        progress: { show: true, width: 18, roundCap: true, itemStyle: { color: bar } },
+        pointer: { show: false },
+        anchor: { show: false },
+        axisTick: { show: false },
+        splitLine: { show: false },
+        axisLabel: { show: false },
+        title: { show: false },
+        detail: {
+          valueAnimation: true,
+          offsetCenter: [0, '-18%'],
+          formatter: (current: number) => formatNps(Math.round(current)),
+          color: p.fg,
+          fontFamily: FONT_DISPLAY,
+          fontWeight: 600,
+          fontSize: 52,
+        },
+        data: [{ value }],
+        animationDuration: 900,
+      },
+    ],
+  };
+}
 
 interface NpsGaugeProps {
   value: number;
   total: number;
 }
 
-const SIZE = 240;
-const RADIUS = 92;
-const STROKE = 18;
-const CENTER_X = SIZE / 2;
-const CENTER_Y = 130;
-
-/** Point on the semicircle for a value in [-100, 100] (left end = -100, top = 0, right end = +100). */
-function pointAt(value: number, radius = RADIUS): [number, number] {
-  const angle = Math.PI * (1 - (value + 100) / 200);
-  return [CENTER_X + radius * Math.cos(angle), CENTER_Y - radius * Math.sin(angle)];
-}
-
-function arc(from: number, to: number): string {
-  const [x1, y1] = pointAt(from);
-  const [x2, y2] = pointAt(to);
-  return `M ${x1.toFixed(2)} ${y1.toFixed(2)} A ${RADIUS} ${RADIUS} 0 0 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`;
-}
-
-/** Semicircular NPS meter with the four standard zones and an animated marker. */
+/** Semicircular NPS meter with the four standard reading bands; the zone name sits under it. */
 export function NpsGauge({ value, total }: NpsGaugeProps) {
+  const palette = useChartPalette();
+  const option = useMemo(() => npsGaugeOption(value, palette), [value, palette]);
   const zone = zoneOf(value);
-  const [markerX, markerY] = pointAt(value);
-  const [innerX, innerY] = pointAt(value, RADIUS - STROKE);
   return (
-    <figure className="m-0 w-full max-w-[360px]">
-      <div className="relative">
-      <svg
-        viewBox={`0 0 ${SIZE} 150`}
-        className="block w-full"
-        role="img"
-        aria-label={`NPS ${formatNps(value)} em uma escala de menos 100 a mais 100, zona ${zone.label.toLowerCase()}, com base em ${total} respostas`}
-      >
-        {NPS_ZONES.map((item) => (
-          <path
-            key={item.label}
-            d={arc(item.from, item.to)}
-            fill="none"
-            stroke={item.color}
-            strokeOpacity="0.28"
-            strokeWidth={STROKE}
-          />
-        ))}
-        <path
-          d={arc(-100, Math.max(-99.5, value))}
-          fill="none"
-          stroke={zone.color}
-          strokeWidth={STROKE}
-          strokeLinecap="round"
-          pathLength={1}
-          className="draw-line"
-        />
-        <line
-          x1={innerX}
-          y1={innerY}
-          x2={markerX}
-          y2={markerY}
-          stroke="var(--fg)"
-          strokeWidth="3"
-          strokeLinecap="round"
-          className="fade-in"
-        />
-        <circle cx={markerX} cy={markerY} r="5" fill="var(--surface)" stroke="var(--fg)" strokeWidth="3" className="fade-in" />
-        <text x={pointAt(-100)[0]} y="148" textAnchor="middle" fontSize="11" fill="var(--muted)">
-          −100
-        </text>
-        <text x={pointAt(100)[0]} y="148" textAnchor="middle" fontSize="11" fill="var(--muted)">
-          +100
-        </text>
-      </svg>
-      <p className="display absolute inset-x-0 top-[46%] m-0 text-center text-[52px] leading-none tabular-nums">
-        <CountUp value={value} format={formatNps} />
-      </p>
-      </div>
-      {/* The zone name sits below the meter, never over the scale labels, at any width. */}
-      <figcaption className="mt-2 text-center text-sm font-semibold" style={{ color: zone.textColor }}>
+    <figure style={{ margin: 0, width: '100%', maxWidth: 360 }}>
+      <AppChart
+        option={option}
+        height={190}
+        label={`NPS ${formatNps(value)} em uma escala de menos 100 a mais 100, ${zone.label.toLowerCase()}, com base em ${total} respostas`}
+      />
+      <figcaption style={{ marginTop: 'var(--ih-space-2)', textAlign: 'center', fontWeight: 700, color: `var(--ih-${TEXT_KEY[zone.tone]})` }}>
         {zone.label}
       </figcaption>
     </figure>

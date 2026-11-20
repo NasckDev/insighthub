@@ -1,10 +1,9 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { Plug, Unplug } from 'lucide-react';
-import { createContext, useCallback, useContext, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import { DataError, createHttpClient, type DataClient } from '../data';
 import { tokenVault } from '../lib/token-vault';
 import { ClientProvider } from './app-context';
-import { Modal } from './modal';
+import { AppAlert, AppButton, AppForm, AppFormItem, AppInput, AppModal, AppParagraph, AppPasswordInput, ApiOutlined, DisconnectOutlined } from '../ui';
 
 interface ConnectionApi {
   mode: 'demo' | 'http';
@@ -90,21 +89,21 @@ export function ClientHost({ demoClient, initialApiUrl, children }: ClientHostPr
     <ConnectionContext.Provider value={api}>
       <ClientProvider client={client}>
         {children}
-        {dialogOpen ? (
-          <ConnectDialog
-            initialUrl={apiUrl ?? DEFAULT_API_URL}
-            connected={apiUrl !== undefined}
-            onClose={() => setDialogOpen(false)}
-            onConnect={connect}
-            onDisconnect={disconnect}
-          />
-        ) : null}
+        <ConnectDialog
+          open={dialogOpen}
+          initialUrl={apiUrl ?? DEFAULT_API_URL}
+          connected={apiUrl !== undefined}
+          onClose={() => setDialogOpen(false)}
+          onConnect={connect}
+          onDisconnect={disconnect}
+        />
       </ClientProvider>
     </ConnectionContext.Provider>
   );
 }
 
 interface ConnectDialogProps {
+  open: boolean;
   initialUrl: string;
   connected: boolean;
   onClose: () => void;
@@ -112,15 +111,19 @@ interface ConnectDialogProps {
   onDisconnect: () => void;
 }
 
-function ConnectDialog({ initialUrl, connected, onClose, onConnect, onDisconnect }: ConnectDialogProps) {
-  const [url, setUrl] = useState(initialUrl);
-  const [token, setToken] = useState('');
+interface ConnectValues {
+  url: string;
+  token?: string;
+}
+
+const ERROR_ID = 'connect-error';
+
+function ConnectDialog({ open, initialUrl, connected, onClose, onConnect, onDisconnect }: ConnectDialogProps) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    const parsed = parseApiUrl(url);
+  async function submit({ url, token }: ConnectValues) {
+    const parsed = parseApiUrl(url ?? '');
     if (!parsed) {
       setError('Informe um endereço http:// ou https:// válido, por exemplo http://localhost:3333.');
       return;
@@ -130,7 +133,7 @@ function ConnectDialog({ initialUrl, connected, onClose, onConnect, onDisconnect
     try {
       // Reads the survey list before switching, so a wrong address or a blocked origin fails here, in the dialog.
       await createHttpClient(parsed.origin).listSurveys();
-      onConnect(parsed.origin, token);
+      onConnect(parsed.origin, token ?? '');
     } catch (failure: unknown) {
       setError(
         failure instanceof DataError && failure.code === 'NETWORK'
@@ -145,59 +148,36 @@ function ConnectDialog({ initialUrl, connected, onClose, onConnect, onDisconnect
   }
 
   return (
-    <Modal title="Conectar à API" onClose={onClose} size="sm">
-      <form className="flex flex-col gap-4" onSubmit={(event) => void submit(event)}>
-        <p className="m-0 text-sm text-muted">
-          Troque os dados fictícios do navegador por uma API InsightHub sua. O token só é necessário para gerar
-          sínteses quando a API exige um, e fica <strong className="text-fg">apenas na memória desta aba</strong>:
-          não é gravado, não vai para a URL e some quando você fecha a página.
-        </p>
-        <div>
-          <label htmlFor="api-url" className="label">
-            Endereço da API
-          </label>
-          <input
-            id="api-url"
-            className="field w-full"
-            inputMode="url"
-            autoComplete="off"
-            value={url}
-            aria-invalid={error !== null}
-            aria-describedby={error ? 'api-error' : undefined}
-            onChange={(event) => setUrl(event.target.value)}
-          />
-        </div>
-        <div>
-          <label htmlFor="api-token" className="label">
-            Token (opcional)
-          </label>
-          <input
-            id="api-token"
-            className="field w-full"
-            type="password"
-            autoComplete="off"
-            value={token}
-            onChange={(event) => setToken(event.target.value)}
-          />
-        </div>
+    <AppModal open={open} title="Conectar à API" onClose={onClose} size="sm">
+      <AppForm<ConnectValues> name="connect" initialValues={{ url: initialUrl, token: '' }} onSubmit={submit}>
+        <AppParagraph tone="muted" small>
+          Troque os dados fictícios do navegador por uma API InsightHub sua. O token só é necessário para gerar sínteses
+          quando a API exige um, e fica <strong>apenas na memória desta aba</strong>: não é gravado, não vai para a URL e
+          some quando você fecha a página.
+        </AppParagraph>
+        <div style={{ height: 'var(--ih-space-4)' }} />
+        <AppFormItem label="Endereço da API" name="url">
+          <AppInput inputMode="url" autoComplete="off" error={error !== null} aria-describedby={error ? ERROR_ID : undefined} />
+        </AppFormItem>
+        <AppFormItem label="Token (opcional)" name="token">
+          <AppPasswordInput autoComplete="off" />
+        </AppFormItem>
         {error ? (
-          <p id="api-error" role="alert" className="m-0 text-sm" style={{ color: 'var(--detractor)' }}>
-            {error}
-          </p>
+          <div id={ERROR_ID} style={{ marginBottom: 'var(--ih-space-4)' }}>
+            <AppAlert kind="error" live="alert" title={error} />
+          </div>
         ) : null}
-        <div className="flex flex-wrap justify-end gap-2">
+        <div className="ih-row ih-end ih-gap-2">
           {connected ? (
-            <button type="button" className="btn" onClick={onDisconnect}>
-              <Unplug aria-hidden="true" size={16} />
+            <AppButton icon={<DisconnectOutlined />} onClick={onDisconnect}>
               Voltar para a demo
-            </button>
+            </AppButton>
           ) : null}
-          <button type="submit" className="btn btn-primary" disabled={busy}>
-            <Plug aria-hidden="true" size={16} />
+          <AppButton variant="primary" htmlType="submit" icon={<ApiOutlined />} loading={busy}>
             {busy ? 'Conectando…' : 'Conectar'}
-          </button>
+          </AppButton>
         </div>
-      </form>
-    </Modal>
+      </AppForm>
+    </AppModal>
   );
 }

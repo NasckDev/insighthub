@@ -1,21 +1,32 @@
-import {
-  LOW_SAMPLE_THRESHOLD,
-  SEGMENT_DIMENSIONS,
-  withDeltas,
-  type SegmentDelta,
-  type SegmentDimension,
-} from '@insighthub/core';
+import { LOW_SAMPLE_THRESHOLD, SEGMENT_DIMENSIONS, withDeltas, type SegmentDelta, type SegmentDimension } from '@insighthub/core';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { TriangleAlert, TrendingDown, TrendingUp } from 'lucide-react';
 import { useClient } from '../components/app-context';
 import { ChartCard } from '../components/charts/chart-card';
-import { DivergingChart, SegmentTable } from '../components/charts/diverging-chart';
-import { Reveal } from '../components/motion';
+import { DivergingChart } from '../components/charts/diverging-chart';
+import { SegmentTable } from '../components/charts/lazy-tables';
 import { EmptyState, PartialNotice, QueryView } from '../components/states';
 import { formatNps, formatNumber, formatPoints } from '../lib/format';
 import { DIMENSION_LABELS, segmentLabel } from '../lib/labels';
 import { filtersOf } from '../lib/search';
 import { usePatchSearch, useSurveyId, useSurveySearch } from '../lib/use-survey-search';
+import {
+  AppAlert,
+  AppBand,
+  AppCard,
+  AppGrid,
+  AppParagraph,
+  AppReveal,
+  AppStack,
+  AppTabs,
+  AppTag,
+  AppText,
+  AppTitle,
+  FallOutlined,
+  PALETTES,
+  RiseOutlined,
+  WarningOutlined,
+  useThemeMode,
+} from '../ui';
 
 function biggestGap(stats: readonly SegmentDelta[]): SegmentDelta | undefined {
   const reliable = stats.filter((stat) => !stat.lowSample);
@@ -23,43 +34,36 @@ function biggestGap(stats: readonly SegmentDelta[]): SegmentDelta | undefined {
   return [...pool].sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))[0];
 }
 
-function SegmentCard({ stat, dimension, index }: { stat: SegmentDelta; dimension: SegmentDimension; index: number }) {
-  const total = stat.promoters + stat.passives + stat.detractors || 1;
-  const parts = [
-    { label: 'Detratores', value: stat.detractors, color: 'var(--detractor-bar)' },
-    { label: 'Neutros', value: stat.passives, color: 'var(--passive-bar)' },
-    { label: 'Promotores', value: stat.promoters, color: 'var(--promoter-bar)' },
-  ];
+function SegmentCard({ stat, dimension }: { stat: SegmentDelta; dimension: SegmentDimension }) {
+  const p = PALETTES[useThemeMode()];
   return (
-    <Reveal index={index}>
-      <article className="card flex h-full flex-col gap-3" aria-label={segmentLabel(dimension, stat.segment)}>
-        <div className="flex items-start justify-between gap-2">
-          <h3 className="display m-0 text-lg">{segmentLabel(dimension, stat.segment)}</h3>
+    <AppCard role="article" aria-label={segmentLabel(dimension, stat.segment)} fullHeight>
+      <AppStack gap={3}>
+        <div className="ih-row ih-between ih-start ih-gap-2">
+          <AppTitle level={3}>{segmentLabel(dimension, stat.segment)}</AppTitle>
           {stat.lowSample ? (
-            <span className="badge badge-passive">
-              <TriangleAlert aria-hidden="true" size={12} />
+            <AppTag tone="passive" icon={<WarningOutlined aria-hidden="true" />}>
               Amostra pequena
-            </span>
+            </AppTag>
           ) : null}
         </div>
-        <p className="display m-0 text-[44px] tabular-nums leading-none">{formatNps(stat.nps)}</p>
-        <p className="m-0 text-sm" style={{ color: stat.delta >= 0 ? 'var(--promoter)' : 'var(--detractor)' }}>
+        <p className="ih-display ih-tabular ih-big-number">{formatNps(stat.nps)}</p>
+        <AppText tone={stat.delta >= 0 ? 'promoter' : 'detractor'} strong>
           {formatPoints(stat.delta)} em relação ao geral
-        </p>
-        <div
-          className="flex h-2.5 overflow-hidden rounded-full bg-surface-2"
-          role="img"
-          aria-label={`Detratores ${stat.detractors}%, neutros ${stat.passives}%, promotores ${stat.promoters}%`}
-        >
-          {parts.map((part) => (
-            <span key={part.label} style={{ width: `${(part.value / total) * 100}%`, background: part.color }} />
-          ))}
-        </div>
-        <p className="m-0 text-xs text-muted">
+        </AppText>
+        <AppBand
+          label={`Detratores ${stat.detractors}%, neutros ${stat.passives}%, promotores ${stat.promoters}%`}
+          parts={[
+            { key: 'd', label: 'Detratores', value: stat.detractors, color: p.detractorBar },
+            { key: 'n', label: 'Neutros', value: stat.passives, color: p.passiveBar },
+            { key: 'p', label: 'Promotores', value: stat.promoters, color: p.promoterBar },
+          ]}
+        />
+        <AppText tone="muted" small>
           {formatNumber(stat.count)} respostas · nota média {stat.averageScore.toLocaleString('pt-BR')}
-        </p>
-      </article>
-    </Reveal>
+        </AppText>
+      </AppStack>
+    </AppCard>
   );
 }
 
@@ -78,21 +82,18 @@ export function ComparePage() {
   });
 
   return (
-    <div className="flex flex-col gap-5">
-      <div role="group" aria-label="Comparar por" className="flex flex-wrap items-center gap-3">
-        <span className="text-sm font-semibold text-muted">Comparar por</span>
-        <div className="seg">
-          {SEGMENT_DIMENSIONS.map((option) => (
-            <button
-              key={option}
-              type="button"
-              aria-pressed={option === dimension}
-              onClick={() => patch({ dimension: option === 'plan' ? undefined : option })}
-            >
-              {DIMENSION_LABELS[option]}
-            </button>
-          ))}
-        </div>
+    <AppStack gap={5}>
+      <div className="ih-row ih-gap-3">
+        <span className="ih-label" style={{ margin: 0 }}>
+          Comparar por
+        </span>
+        <AppTabs
+          aria-label="Comparar por"
+          tabsOnly
+          activeKey={dimension}
+          onChange={(key) => patch({ dimension: key === 'plan' ? undefined : (key as SegmentDimension) })}
+          items={SEGMENT_DIMENSIONS.map((option) => ({ key: option, label: DIMENSION_LABELS[option] }))}
+        />
       </div>
 
       <QueryView
@@ -112,49 +113,36 @@ export function ComparePage() {
           return (
             <>
               {data.partial ? (
-                <PartialNotice
-                  message={`Exibindo ${data.partial.loaded} de ${data.partial.expected} segmentos.`}
-                  onRetry={() => void query.refetch()}
-                />
+                <PartialNotice message={`Exibindo ${data.partial.loaded} de ${data.partial.expected} segmentos.`} onRetry={() => void query.refetch()} />
               ) : null}
 
               {gap && stats.length > 1 ? (
-                <section className="card flex items-center gap-4" aria-label="Maior diferença">
-                  <span
-                    className="grid h-12 w-12 shrink-0 place-items-center rounded-full"
-                    style={{ background: gap.delta >= 0 ? 'var(--primary-soft)' : 'var(--accent-soft)', color: gap.delta >= 0 ? 'var(--promoter)' : 'var(--detractor)' }}
-                  >
-                    {gap.delta >= 0 ? <TrendingUp aria-hidden="true" size={24} /> : <TrendingDown aria-hidden="true" size={24} />}
-                  </span>
-                  <p className="m-0 text-base">
-                    <strong>{segmentLabel(dimension, gap.segment)}</strong> é o segmento que mais se afasta do NPS geral (
-                    <strong className="tabular-nums">{formatNps(data.overall.nps)}</strong>):{' '}
-                    <strong className="tabular-nums" style={{ color: gap.delta >= 0 ? 'var(--promoter)' : 'var(--detractor)' }}>
-                      {formatPoints(gap.delta)}
-                    </strong>
-                    , com {formatNumber(gap.count)} respostas.
-                  </p>
-                </section>
+                <AppCard role="region" aria-label="Maior diferença">
+                  <div className="ih-row ih-gap-4 ih-nowrap">
+                    <span className="ih-gap-icon" style={{ color: gap.delta >= 0 ? 'var(--ih-promoter)' : 'var(--ih-detractor)', background: gap.delta >= 0 ? 'var(--ih-primary-soft)' : 'var(--ih-accent-soft)' }}>
+                      {gap.delta >= 0 ? <RiseOutlined aria-hidden="true" /> : <FallOutlined aria-hidden="true" />}
+                    </span>
+                    <AppParagraph>
+                      <strong>{segmentLabel(dimension, gap.segment)}</strong> é o segmento que mais se afasta do NPS geral (<strong className="ih-tabular">{formatNps(data.overall.nps)}</strong>):{' '}
+                      <AppText strong tabular tone={gap.delta >= 0 ? 'promoter' : 'detractor'}>
+                        {formatPoints(gap.delta)}
+                      </AppText>
+                      , com {formatNumber(gap.count)} respostas.
+                    </AppParagraph>
+                  </div>
+                </AppCard>
               ) : null}
 
-              {data.truncated ? (
-                <PartialNotice message="A API limita a análise a 5.000 respostas; os números abaixo cobrem só uma parte da pesquisa." />
-              ) : null}
+              {data.truncated ? <PartialNotice message="A API limita a análise a 5.000 respostas; os números abaixo cobrem só uma parte da pesquisa." /> : null}
 
               {small.length > 0 ? (
-                <div
-                  role="note"
-                  className="flex items-start gap-3 rounded-xl border p-4 text-sm"
-                  style={{ background: 'var(--warn-bg)', color: 'var(--warn-fg)', borderColor: 'var(--warn-line)' }}
-                >
-                  <TriangleAlert aria-hidden="true" size={20} className="mt-0.5 shrink-0" />
-                  <p className="m-0">
-                    <strong>Cuidado com amostras pequenas.</strong>{' '}
-                    {small.length === 1 ? 'Um segmento tem' : `${small.length} segmentos têm`} menos de {LOW_SAMPLE_THRESHOLD}{' '}
-                    respostas ({small.map((segment) => segmentLabel(dimension, segment.segment)).join(', ')}). Com tão poucos
-                    dados, o NPS varia muito e não sustenta conclusões. Estes segmentos aparecem listrados.
-                  </p>
-                </div>
+                <AppAlert
+                  kind="warning"
+                  title="Cuidado com amostras pequenas."
+                  description={`${small.length === 1 ? 'Um segmento tem' : `${small.length} segmentos têm`} menos de ${LOW_SAMPLE_THRESHOLD} respostas (${small
+                    .map((segment) => segmentLabel(dimension, segment.segment))
+                    .join(', ')}). Com tão poucos dados, o NPS varia muito e não sustenta conclusões. Estes segmentos aparecem listrados.`}
+                />
               ) : null}
 
               <ChartCard
@@ -164,16 +152,20 @@ export function ComparePage() {
                 table={<SegmentTable stats={stats} dimension={dimension} />}
               />
 
-              <section aria-label="Segmentos lado a lado" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <h2 className="sr-only">Segmentos lado a lado</h2>
-                {stats.map((stat, index) => (
-                  <SegmentCard key={stat.segment} stat={stat} dimension={dimension} index={index} />
-                ))}
+              <section aria-label="Segmentos lado a lado">
+                <h2 className="ih-sr-only">Segmentos lado a lado</h2>
+                <AppGrid columns={{ base: 1, sm: 2, lg: 3 }}>
+                  {stats.map((stat, index) => (
+                    <AppReveal key={stat.segment} index={index}>
+                      <SegmentCard stat={stat} dimension={dimension} />
+                    </AppReveal>
+                  ))}
+                </AppGrid>
               </section>
             </>
           );
         }}
       </QueryView>
-    </div>
+    </AppStack>
   );
 }

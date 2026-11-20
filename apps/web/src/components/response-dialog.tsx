@@ -1,14 +1,13 @@
 import { type SurveyResponse } from '@insighthub/core';
 import { useQuery } from '@tanstack/react-query';
-import { Link2 } from 'lucide-react';
+import { useEffect } from 'react';
 import { formatDate } from '../lib/format';
 import { PLAN_LABELS, REGION_LABELS, ROLE_LABELS } from '../lib/labels';
 import { personOf } from '../lib/people';
+import { AppButton, AppDrawer, AppParagraph, AppStack, AppText, AppTitle, LinkOutlined, useToast } from '../ui';
 import { useClient } from './app-context';
-import { Modal } from './modal';
 import { Avatar, ScoreBadge, ThemeChips } from './response-bits';
 import { ErrorState, LoadingBlock } from './states';
-import { useToast } from './toast';
 
 interface ResponseDialogProps {
   surveyId: string;
@@ -36,6 +35,14 @@ export function ResponseDialog({ surveyId, responseId, onClose }: ResponseDialog
   });
   const data = response.data;
 
+  // The panel is unmounted when the address loses `?r=`, so hand the focus back to whatever opened it.
+  useEffect(() => {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    return () => {
+      setTimeout(() => opener?.focus(), 0);
+    };
+  }, []);
+
   async function copyLink() {
     try {
       await navigator.clipboard.writeText(window.location.href);
@@ -46,59 +53,61 @@ export function ResponseDialog({ surveyId, responseId, onClose }: ResponseDialog
   }
 
   return (
-    <Modal title={`Resposta ${responseId}`} onClose={onClose} variant="sheet">
+    <AppDrawer open title={`Resposta ${responseId}`} onClose={onClose}>
       {response.isPending ? <LoadingBlock label="Carregando resposta" height={220} /> : null}
       {response.isError ? <ErrorState error={response.error} onRetry={() => void response.refetch()} /> : null}
       {data ? (
-        <div className="flex flex-col gap-5">
-          <div className="flex items-center gap-3">
+        <AppStack gap={5}>
+          <div className="ih-row ih-gap-3 ih-nowrap">
             <Avatar respondentId={data.respondentId} size={44} />
-            <div className="min-w-0 flex-1">
-              <p className="m-0 font-semibold">{personOf(data.respondentId).name}</p>
-              <p className="m-0 text-sm text-muted">
+            <div className="ih-fill">
+              <AppText strong block>
+                {personOf(data.respondentId).name}
+              </AppText>
+              <AppText tone="muted" small>
                 {ROLE_LABELS[data.role]} · {formatDate(data.submittedAt)}
-              </p>
+              </AppText>
             </div>
             <ScoreBadge score={data.npsScore} />
           </div>
-          <blockquote className="quote m-0 border-l-4 border-primary pl-4 text-xl">{data.comment}</blockquote>
+          <blockquote className="ih-quote ih-response-quote">{data.comment}</blockquote>
           <ThemeChips comment={data.comment} />
-          <dl className="m-0 grid grid-cols-2 gap-x-4 gap-y-3 rounded-xl bg-surface-2 p-4 text-sm">
+          <dl className="ih-meta">
             <Meta label="Plano" value={PLAN_LABELS[data.plan]} />
             <Meta label="Região" value={REGION_LABELS[data.region]} />
             <Meta label="Função" value={ROLE_LABELS[data.role]} />
             <Meta label="Respondente" value={data.respondentId} />
           </dl>
           <section aria-label="Respostas do questionário">
-            <h3 className="eyebrow mb-2">Questionário</h3>
-            <dl className="m-0 flex flex-col gap-3 text-sm">
+            <AppTitle level={3}>Questionário</AppTitle>
+            <dl className="ih-answers">
               {Object.entries(data.answers).map(([questionId, value]) => (
                 <div key={questionId}>
-                  <dt className="text-muted">
-                    {survey.data?.questions.find((question) => question.id === questionId)?.prompt ?? questionId}
-                  </dt>
-                  <dd className="m-0 font-medium">{formatAnswer(value)}</dd>
+                  <dt>{survey.data?.questions.find((question) => question.id === questionId)?.prompt ?? questionId}</dt>
+                  <dd>{formatAnswer(value)}</dd>
                 </div>
               ))}
             </dl>
           </section>
           <div>
-            <button type="button" className="btn btn-sm" onClick={() => void copyLink()}>
-              <Link2 aria-hidden="true" size={15} />
+            <AppButton icon={<LinkOutlined />} onClick={() => void copyLink()}>
               Copiar link desta resposta
-            </button>
+            </AppButton>
           </div>
-        </div>
+          <AppParagraph tone="muted" small>
+            Respondente fictício, gerado só para esta demonstração.
+          </AppParagraph>
+        </AppStack>
       ) : null}
-    </Modal>
+    </AppDrawer>
   );
 }
 
 function Meta({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-muted">{label}</dt>
-      <dd className="m-0 font-semibold">{value}</dd>
+      <dt>{label}</dt>
+      <dd>{value}</dd>
     </div>
   );
 }

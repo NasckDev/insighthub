@@ -1,5 +1,6 @@
-import { BarChart3, Table2 } from 'lucide-react';
-import { useId, useState, type ReactNode } from 'react';
+import { Suspense, useId, useState, type ReactNode } from 'react';
+import { LoadingBlock } from '../states';
+import { AppCard, AppParagraph, AppSegmented, AppStack, AppTitle, BarChartOutlined, TableOutlined } from '../../ui';
 
 interface ChartCardProps {
   title: string;
@@ -8,41 +9,47 @@ interface ChartCardProps {
   /** Same data as the chart, as a table: the accessible alternative. */
   table: ReactNode;
   legend?: ReactNode;
-  className?: string;
+  fullHeight?: boolean;
 }
 
+type View = 'chart' | 'table';
+
 /** Card with a heading, a short description, the chart, and a switch to the table alternative. */
-export function ChartCard({ title, description, chart, table, legend, className = '' }: ChartCardProps) {
-  const [view, setView] = useState<'chart' | 'table'>('chart');
+export function ChartCard({ title, description, chart, table, legend, fullHeight }: ChartCardProps) {
+  const [view, setView] = useState<View>('chart');
   const headingId = useId();
   return (
-    <section aria-labelledby={headingId} className={`card flex min-w-0 flex-col gap-3 ${className}`}>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h2 id={headingId} className="display m-0 text-xl">
-            {title}
-          </h2>
-          <p className="m-0 mt-0.5 text-sm text-muted">{description}</p>
+    <AppCard role="region" aria-labelledby={headingId} fullHeight={fullHeight}>
+      <AppStack gap={3}>
+        <div className="ih-row ih-between ih-start ih-gap-3">
+          <div className="ih-fill" style={{ flexBasis: '14rem' }}>
+            <AppTitle level={2} id={headingId}>
+              {title}
+            </AppTitle>
+            <AppParagraph tone="muted" small>
+              {description}
+            </AppParagraph>
+          </div>
+          <AppSegmented<View>
+            aria-label={`Formato de ${title}`}
+            size="sm"
+            value={view}
+            onChange={setView}
+            options={[
+              { value: 'chart', label: <><BarChartOutlined aria-hidden="true" /> Gráfico</> },
+              { value: 'table', label: <><TableOutlined aria-hidden="true" /> Tabela</> },
+            ]}
+          />
         </div>
-        <div className="seg" role="group" aria-label={`Formato de ${title}`}>
-          <button type="button" aria-pressed={view === 'chart'} onClick={() => setView('chart')}>
-            <BarChart3 aria-hidden="true" size={15} className="mr-1 inline" />
-            Gráfico
-          </button>
-          <button type="button" aria-pressed={view === 'table'} onClick={() => setView('table')}>
-            <Table2 aria-hidden="true" size={15} className="mr-1 inline" />
-            Tabela
-          </button>
-        </div>
-      </div>
-      {view === 'chart' ? (
-        <>
-          {chart}
-          {legend}
-        </>
-      ) : (
-        <div className="max-h-80 overflow-auto rounded-xl border border-line">{table}</div>
-      )}
-    </section>
+        {view === 'chart' ? (
+          <>
+            {chart}
+            {legend}
+          </>
+        ) : (
+          <Suspense fallback={<LoadingBlock label="Carregando a tabela" height={160} />}>{table}</Suspense>
+        )}
+      </AppStack>
+    </AppCard>
   );
 }

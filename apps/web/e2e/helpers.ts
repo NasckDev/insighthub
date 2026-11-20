@@ -34,6 +34,8 @@ export async function setTheme(page: Page, theme: 'light' | 'dark') {
   await page.evaluate((value) => {
     document.documentElement.dataset.theme = value;
   }, theme);
+  // The provider follows <html data-theme> through a MutationObserver; wait for Ant Design to repaint.
+  await page.waitForTimeout(400);
 }
 
 /** The box of a dialog must sit inside the viewport and have a usable size: axe cannot see this. */
