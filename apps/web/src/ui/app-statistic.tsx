@@ -1,4 +1,4 @@
-import { Statistic } from 'antd';
+import Statistic from 'antd/es/statistic';
 import { useEffect, useState, type ReactNode } from 'react';
 import { AppCard } from './app-card';
 import { PALETTES, useThemeMode } from './theme';

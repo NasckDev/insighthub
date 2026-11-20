@@ -1,4 +1,5 @@
 import react from '@vitejs/plugin-react';
+import { visualizer } from 'rollup-plugin-visualizer';
 import { defineConfig } from 'vitest/config';
 
 // `base: './'` keeps every asset URL relative, so the build works under any subpath
@@ -6,7 +7,8 @@ import { defineConfig } from 'vitest/config';
 // hash history, so a reload on an inner route never needs server-side rewrites.
 export default defineConfig({
   base: './',
-  plugins: [react()],
+  // `ANALYZE=1 npm run build -w @insighthub/web` writes dist-stats.json with the size of every module per chunk.
+  plugins: [react(), ...(process.env.ANALYZE ? [visualizer({ template: 'raw-data', filename: 'dist-stats.json', gzipSize: true })] : [])],
   build: {
     outDir: 'dist',
     sourcemap: false,

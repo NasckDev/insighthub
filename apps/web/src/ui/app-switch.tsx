@@ -1,4 +1,5 @@
-import { Switch, type SwitchProps } from 'antd';
+import Switch from 'antd/es/switch';
+import type { SwitchProps } from 'antd';
 
 export interface AppSwitchProps extends Omit<SwitchProps, 'size'> {
   /** Required: a switch without a name is announced as "switch, on". */

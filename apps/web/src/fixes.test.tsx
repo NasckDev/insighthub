@@ -6,6 +6,7 @@ import { basisText, providerLabel } from './routes/synthesis-page';
 import { getBoardStore } from './lib/board-store';
 import { tour } from './lib/tour-store';
 import { renderApp } from './test/render-app';
+import { warmLazyModules } from './test/warm';
 
 const SURVEY = '/s/s-atlas-q3';
 const TABLE_NAME = 'Respostas da pesquisa';
@@ -30,10 +31,10 @@ function insight(id: string, bodyLength = 10): Insight {
   };
 }
 
-// Warm the lazily loaded chunks once, so a slow first transform never eats a test's time budget.
+// Warm every lazily loaded chunk once, so a slow first transform never eats a test's time budget.
 beforeAll(async () => {
-  await Promise.all([import('./components/command-palette'), import('./components/shortcuts-modal')]);
-}, 120_000);
+  await warmLazyModules();
+}, 240_000);
 
 beforeEach(() => {
   const store = getBoardStore();

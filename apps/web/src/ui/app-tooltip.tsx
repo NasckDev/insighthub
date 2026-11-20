@@ -1,4 +1,4 @@
-import { Tooltip } from 'antd';
+import Tooltip from 'antd/es/tooltip';
 import type { ReactElement, ReactNode } from 'react';
 
 export interface AppTooltipProps {

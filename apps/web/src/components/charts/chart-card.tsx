@@ -1,5 +1,4 @@
-import { Suspense, useId, useState, type ReactNode } from 'react';
-import { LoadingBlock } from '../states';
+import { useId, useState, type ReactNode } from 'react';
 import { AppCard, AppParagraph, AppSegmented, AppStack, AppTitle, BarChartOutlined, TableOutlined } from '../../ui';
 
 interface ChartCardProps {
@@ -47,7 +46,7 @@ export function ChartCard({ title, description, chart, table, legend, fullHeight
             {legend}
           </>
         ) : (
-          <Suspense fallback={<LoadingBlock label="Carregando a tabela" height={160} />}>{table}</Suspense>
+          table
         )}
       </AppStack>
     </AppCard>

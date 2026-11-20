@@ -1,6 +1,4 @@
-import { App } from 'antd';
 import { useCallback } from 'react';
-import { AppButton } from './app-button';
 
 export type ToastKind = 'success' | 'info' | 'error';
 
@@ -11,45 +9,25 @@ export interface ToastInput {
   durationMs?: number;
 }
 
-const DEFAULT_SECONDS = 6;
+type Show = (toast: ToastInput) => void;
+
+let show: Show | null = null;
+const waiting: ToastInput[] = [];
+
+/** Called by `ToastHost` once the notification code has loaded; anything shown before that is replayed. */
+export function registerToastHost(next: Show | null): void {
+  show = next;
+  if (next) for (const toast of waiting.splice(0)) next(toast);
+}
 
 /**
  * Feedback that leaves on its own and pauses while the pointer or focus is on it (so nobody loses the
- * "Desfazer" button while reaching for it). Plain messages use `message`; ones with an action use
- * `notification`.
+ * "Desfazer" button while reaching for it). The notification code (about 20 kB gzip) lives in `ToastHost`,
+ * which `AppProvider` loads right after the first paint instead of at startup.
  */
-export function useToast(): (toast: ToastInput) => void {
-  const { message, notification } = App.useApp();
-  return useCallback(
-    ({ message: text, kind = 'success', action, durationMs }: ToastInput) => {
-      const seconds = (durationMs ?? DEFAULT_SECONDS * 1000) / 1000;
-      if (!action) {
-        void message.open({ type: kind, content: text, duration: seconds });
-        return;
-      }
-      const key = `toast-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      notification.open({
-        key,
-        type: kind,
-        title: text,
-        duration: seconds,
-        pauseOnHover: true,
-        placement: 'bottomRight',
-        role: kind === 'error' ? 'alert' : 'status',
-        actions: (
-          <AppButton
-            size="sm"
-            variant="primary"
-            onClick={() => {
-              action.onClick();
-              notification.destroy(key);
-            }}
-          >
-            {action.label}
-          </AppButton>
-        ),
-      });
-    },
-    [message, notification],
-  );
+export function useToast(): Show {
+  return useCallback((input: ToastInput) => {
+    if (show) show(input);
+    else waiting.push(input);
+  }, []);
 }

@@ -1,4 +1,5 @@
-import { theme as antdTheme, type ThemeConfig } from 'antd';
+import antdTheme from 'antd/es/theme';
+import type { ThemeConfig } from 'antd';
 import { useSyncExternalStore } from 'react';
 
 /**

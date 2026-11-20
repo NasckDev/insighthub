@@ -1,4 +1,5 @@
-import { Form, type FormInstance, type FormItemProps, type FormProps } from 'antd';
+import Form from 'antd/es/form';
+import type { FormInstance, FormItemProps, FormProps } from 'antd';
 import type { ReactNode } from 'react';
 
 export interface AppFormProps<Values> extends Omit<FormProps<Values>, 'layout' | 'requiredMark' | 'onFinish'> {

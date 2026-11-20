@@ -1,4 +1,4 @@
-import { DatePicker } from 'antd';
+import DatePicker from 'antd/es/date-picker';
 import ptBRPicker from 'antd/es/date-picker/locale/pt_BR';
 import dayjs, { type Dayjs } from 'dayjs';
 import 'dayjs/locale/pt-br';

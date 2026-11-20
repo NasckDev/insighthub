@@ -1,4 +1,4 @@
-import { Avatar } from 'antd';
+import Avatar from 'antd/es/avatar';
 import type { ReactNode } from 'react';
 
 export interface AppAvatarProps {

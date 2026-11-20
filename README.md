@@ -57,6 +57,7 @@ Outros prints em [`docs/prints/`](docs/prints): Filtros (`filtros-desktop.png`, 
 | zod | exata no `package.json` | MIT | validação |
 | @fontsource-variable/fraunces, @fontsource-variable/inter | exatas no `package.json` | OFL-1.1 | fontes auto-hospedadas |
 | storybook, @storybook/react-vite, addon-a11y, addon-docs | 10.6.8 | MIT | documentação dos componentes (dev) |
+| rollup-plugin-visualizer | 7.1.3 | MIT | análise do bundle (dev, só com `ANALYZE=1`) |
 | vite, vitest, @playwright/test, @axe-core/playwright | exatas no `package.json` | MIT, MPL-2.0 (axe-core) | build e testes (dev) |
 
 `npm audit --omit=dev` não aponta vulnerabilidades. O `npm audit` completo aponta 4 de severidade moderada, todas em `glob` e `minimatch` dentro do `@storybook/react-vite` (ferramenta de desenvolvimento, fora do bundle publicado).
@@ -111,22 +112,27 @@ Copie `apps/web/dist` para onde quiser (ex.: `<site>/projetos/insighthub/`) e si
 
 ## Desempenho
 
-Rotas carregadas sob demanda (cada tela é um chunk). O ECharts (instância, renderizador SVG e os cinco tipos de gráfico) é um chunk à parte, carregado depois da primeira pintura; o calendário do `AppDatePicker`, as tabelas alternativas dos gráficos, a paleta de comandos e o modal de atalhos só são baixados quando alguém os usa. O seed fictício vem em outro chunk (`import()` no `main.tsx`). O `package.json` do web declara `sideEffects: ["**/*.css"]`, o que deixa a camada `ui` ser sacudida pelo bundler (sem isso o primeiro carregamento levava todos os componentes do Ant Design).
+Medido com gzip nível 9 sobre o `apps/web/dist` do build portátil, sempre com o mesmo método (os arquivos que o `index.html` baixa, incluindo os pré-carregados):
 
-Medido com gzip nível 9 sobre o `apps/web/dist` do build portátil (mesmo método antes e depois):
+| | Design à mão (antes) | Primeira versão com antd | **Agora** |
+| --- | --- | --- | --- |
+| JavaScript do primeiro carregamento | 173,6 kB | 401,5 kB | **246,4 kB** |
+| CSS do primeiro carregamento | 8,3 kB | 3,9 kB | 4,2 kB |
+| JavaScript baixado ao abrir o Painel (inclui o ECharts, depois da primeira pintura) | n/d (gráficos próprios, tudo dentro dos 173,6 kB mais as telas) | 625,6 kB | 618,3 kB |
+| JavaScript baixado ao abrir Respostas | n/d | 507,8 kB | 503,6 kB |
+| ECharts (`echarts/core`, SVG, sob demanda) | não havia | 203,3 kB | 203,3 kB |
+| Tabela do antd / calendário (sob demanda) | não havia | 56,7 / 35,6 kB | 56,4 / 35,7 kB |
+| Fontes WOFF2 (latim, sem CDN) | 127,5 kB | 127,5 kB | 127,5 kB |
+| `apps/web/dist` inteiro | 839 kB, 48 arquivos | 2.376 kB, 62 arquivos | 2.386 kB, 121 arquivos |
 
-| | Antes (design à mão) | Depois (Ant Design + ECharts) |
-| --- | --- | --- |
-| JavaScript do primeiro carregamento (arquivos do `index.html`, incluindo os pré-carregados) | 173,6 kB | **401,5 kB** (+131%) |
-| JavaScript realmente baixado ao abrir o Painel (inclui o ECharts, depois da primeira pintura) | 173,6 kB + telas | 625,6 kB |
-| JavaScript realmente baixado ao abrir Respostas | 173,6 kB + telas | 507,8 kB |
-| ECharts (`echarts/core`, sob demanda) | não havia (gráficos próprios) | 203,3 kB |
-| Calendário (sob demanda) / tabela do Ant Design | não havia | 35,6 kB / 56,7 kB |
-| CSS | 8,3 kB | 3,9 kB (o Ant Design injeta o resto em tempo de execução) |
-| Fontes WOFF2 (latim, sem CDN) | 127,5 kB | 127,5 kB |
-| `apps/web/dist` inteiro | 839 kB, 48 arquivos | 2.376 kB, 62 arquivos |
+O que derrubou o primeiro carregamento de 401,5 para 246,4 kB (investigado com `rollup-plugin-visualizer`: `ANALYZE=1 npm run build -w @insighthub/web` gera `apps/web/dist-stats.json` com o tamanho de cada módulo por chunk):
 
-O custo do Ant Design é real: o primeiro carregamento mais que dobrou, e o Painel baixa 625,6 kB de JavaScript. Saíram Tailwind, `motion` e `lucide-react`, e ficou de fora do bundle o que vinha de matemática própria de gráficos. Os vendors de React (65,8 kB), TanStack (34,8 kB) e Zod (23,1 kB) continuam iguais.
+- `sideEffects: ["**/*.css"]` no `package.json` do web, para o barrel `ui/index.ts` ser sacudido pelo bundler; importações do Ant Design por caminho direto (`antd/es/button`), nunca pelo índice do pacote; ícones com `/*#__PURE__*/`.
+- Fora da entrada e carregados sob demanda: `AppSelect`, calendário, diálogo "Conectar à API", tour, menu "Mais opções" do celular, menu da conta, avisos (`message` e `notification`), telas de erro, `SurveyLayout`, tabelas alternativas dos gráficos e o ECharts.
+- Fora da entrada porque dava para trocar sem perda: o componente `App` do antd (trazia `Modal`), o `Tooltip` dos botões de ícone (agora `title` nativo), o `Menu` da barra lateral (lista simples de links), o `Typography` e o `Skeleton` (elementos nativos com classes do tema).
+- O que sobra é o piso do Ant Design com tema (`ConfigProvider`, `Layout`, `Button`, `Dropdown`) mais React (65,8 kB), TanStack (34,8 kB) e Zod (23,1 kB).
+
+Os 246,4 kB não incluem o que vem logo depois da primeira pintura: quem abre o Painel baixa 618,3 kB de JavaScript no total, dos quais 203,3 kB são do ECharts. São 97 requisições de JavaScript nessa tela (o bundler separa os módulos compartilhados em muitos chunks pequenos).
 
 ## Arquitetura
 
@@ -217,7 +223,7 @@ curl -N -X POST http://localhost:3333/api/surveys/s-atlas-q3/synthesis \
 
 ## Testes
 
-Números reais da última rodada (Vitest 5 e Playwright 1.65). Em máquina lenta os testes de componente demoram (cerca de 15 a 20 minutos no total, com `--pool=threads --maxWorkers=1`) e os que abrem um chunk carregado sob demanda (paleta, atalhos, tabela alternativa) podem estourar o prazo se outra coisa estiver rodando ao mesmo tempo:
+Números reais da última rodada (Vitest 5 e Playwright 1.65). Em máquina lenta a suíte `web` leva cerca de 7 a 15 minutos (`--pool=threads --maxWorkers=1`). Os arquivos que montam o app inteiro aquecem antes, num `beforeAll`, todos os módulos carregados sob demanda (`src/test/warm.ts`), e as telas que alternam para a tabela do gráfico carregam o módulo por estado em vez de `Suspense`, para que a primeira transformação lenta de um chunk não estoure o prazo de um teste:
 
 | Camada | Arquivos | Testes | O que cobre |
 | --- | --- | --- | --- |

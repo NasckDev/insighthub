@@ -1,4 +1,4 @@
-import { Collapse } from 'antd';
+import Collapse from 'antd/es/collapse';
 import type { ReactNode } from 'react';
 
 export interface AppCollapseProps {

@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { AppSkeletonInput } from './app-skeleton';
+import { AppSkeletonInput } from './app-skeleton-input';
 
 export interface AppDatePickerProps {
   /** Needed so a `<label htmlFor>` can name the field. */

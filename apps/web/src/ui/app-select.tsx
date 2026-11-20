@@ -1,8 +1,6 @@
-import { Select, type SelectProps } from 'antd';
+import type { SelectProps } from 'antd';
+import { lazy, Suspense } from 'react';
 import type { ControlSize } from './app-button';
-
-const SIZE = { sm: 'small', md: 'middle', lg: 'large' } as const;
-
 export interface AppSelectOption<T extends string | number = string> {
   value: T;
   label: string;
@@ -19,21 +17,17 @@ export interface AppSelectProps<T extends string | number = string>
   onChange?: (value: T) => void;
 }
 
-/** Dropdown with the app look. The popup is rendered under <body>, so no card can clip it. */
-export function AppSelect<T extends string | number = string>({
-  options,
-  size = 'md',
-  error = false,
-  onChange,
-  ...rest
-}: AppSelectProps<T>) {
+const LazySelect = lazy(() => import('./select-field'));
+
+/**
+ * Dropdown with the app look. The popup is rendered under <body>, so no card can clip it. The component
+ * loads on demand and shows a field-shaped placeholder meanwhile.
+ */
+export function AppSelect<T extends string | number = string>(props: AppSelectProps<T>) {
+  const Component = LazySelect as unknown as (p: AppSelectProps<T>) => React.JSX.Element;
   return (
-    <Select<T>
-      size={SIZE[size]}
-      status={error ? 'error' : undefined}
-      options={options as unknown as SelectProps<T>['options']}
-      onChange={(value) => onChange?.(value)}
-      {...rest}
-    />
+    <Suspense fallback={<span className="ih-select-fallback" style={props.style} aria-hidden="true" />}>
+      <Component {...props} />
+    </Suspense>
   );
 }

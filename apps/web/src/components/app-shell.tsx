@@ -1,22 +1,20 @@
 import { Link, Outlet, useNavigate, useParams, useRouterState } from '@tanstack/react-router';
-import { lazy, Suspense, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useFaultMode, type FaultController, type FaultMode } from '../data';
 import { DEFAULT_SURVEY_ID } from '../lib/constants';
 import { GO_TARGETS, isTypingTarget, type GoKey } from '../lib/shortcuts';
 import { tour } from '../lib/tour-store';
+import { useOnDemand } from '../lib/use-on-demand';
 import {
   ApiOutlined,
-  AppAvatar,
   AppButton,
-  AppDrawer,
-  AppDropdown,
   AppIconButton,
   AppKbd,
   AppLayout,
   AppLayoutBody,
   AppLayoutContent,
   AppLayoutHeader,
-  AppMenu,
+  AppSideNav,
   AppSelect,
   AppSider,
   AppStack,
@@ -26,20 +24,23 @@ import {
   QuestionCircleOutlined,
   SearchOutlined,
   SunOutlined,
-  UserOutlined,
   applyNextTheme,
   useIsDesktop,
   useThemeMode,
 } from '../ui';
 import { useClient } from './app-context';
 import { useConnection } from './connection';
+import { AccountButton } from './account-button';
 import { Logo, LogoMark } from './logo';
 import { NAV_ITEMS, PAGE_TITLES, type NavItem } from './nav-items';
-import { Tour } from './tour';
 
 // Opened on demand, so they stay out of the first-paint bundle.
-const CommandPalette = lazy(() => import('./command-palette').then((m) => ({ default: m.CommandPalette })));
-const ShortcutsModal = lazy(() => import('./shortcuts-modal').then((m) => ({ default: m.ShortcutsModal })));
+const loadPalette = () => import('./command-palette');
+const loadShortcuts = () => import('./shortcuts-modal');
+const loadTour = () => import('./tour');
+const loadMobileMenu = () => import('./mobile-menu');
+// The account menu (Dropdown) loads right after the first paint; a plain button holds its place.
+const loadAccountMenu = () => import('./account-menu');
 
 const FAULT_OPTIONS: { value: FaultMode; label: string }[] = [
   { value: 'none', label: 'Tudo normal' },
@@ -82,6 +83,12 @@ export function AppShell() {
   const desktop = useIsDesktop();
   const mode = useThemeMode();
   const chord = useRef<{ key: string; at: number } | null>(null);
+
+  const palette = useOnDemand(loadPalette, paletteOpen);
+  const shortcuts = useOnDemand(loadShortcuts, helpOpen);
+  const tourModule = useOnDemand(loadTour, true);
+  const mobileMenu = useOnDemand(loadMobileMenu, menuOpen && !desktop);
+  const accountMenu = useOnDemand(loadAccountMenu, true);
 
   const closePalette = useCallback(() => setPaletteOpen(false), []);
   const showShortcuts = useCallback(() => setHelpOpen(true), []);
@@ -173,7 +180,7 @@ export function AppShell() {
               <Logo collapsed={collapsed} />
             </Link>
             <nav aria-label="Principal">
-              <AppMenu aria-label="Seções" items={menuItems(true)} selectedKey={section} collapsed={collapsed} />
+              <AppSideNav aria-label="Seções" items={menuItems(true)} selectedKey={section} collapsed={collapsed} />
             </nav>
             <div className="ih-sider-spacer" />
             <AppStack gap={1}>
@@ -195,7 +202,11 @@ export function AppShell() {
               <strong>Demo com dados fictícios</strong>
               <span className="ih-hide-phone"> · produto inventado “Atlas Analytics”, tudo roda no seu navegador</span>
             </span>
-            {faults ? <FaultSimulator controller={faults} /> : null}
+            {faults ? (
+              <span className="ih-hide-phone">
+                <FaultSimulator controller={faults} />
+              </span>
+            ) : null}
           </div>
         ) : null}
 
@@ -221,9 +232,7 @@ export function AppShell() {
             icon={mode === 'dark' ? <MoonOutlined /> : <SunOutlined />}
             onClick={() => applyNextTheme()}
           />
-          <AppDropdown items={accountItems}>
-            <AppButton variant="ghost" aria-label="Menu da conta" icon={<AppAvatar size="sm" background="var(--ih-primary)"><UserOutlined /></AppAvatar>} />
-          </AppDropdown>
+          {accountMenu ? <accountMenu.default items={accountItems} /> : <AccountButton />}
         </AppLayoutHeader>
 
         <AppLayoutContent id="conteudo" contentRef={mainRef}>
@@ -255,33 +264,24 @@ export function AppShell() {
         </nav>
       )}
 
-      <AppDrawer open={menuOpen && !desktop} title="Mais opções" onClose={() => setMenuOpen(false)} placement="end" width={360}>
-        <AppStack gap={4}>
-          <nav aria-label="Todas as seções">
-            <AppMenu aria-label="Todas as seções" items={menuItems(false)} selectedKey={section} />
-          </nav>
-          <AppStack gap={1}>
-            <AppButton variant="ghost" block icon={<QuestionCircleOutlined />} onClick={() => { setMenuOpen(false); setHelpOpen(true); }}>
-              Atalhos de teclado
-            </AppButton>
-            <AppButton variant="ghost" block icon={<CompassOutlined />} onClick={() => { setMenuOpen(false); startTour(); }}>
-              Rever o tour
-            </AppButton>
-            <AppButton variant="ghost" block icon={<ApiOutlined />} onClick={() => { setMenuOpen(false); connection.openDialog(); }}>
-              {connectLabel}
-            </AppButton>
-            <AppButton variant="ghost" block icon={<SearchOutlined />} onClick={() => { setMenuOpen(false); setPaletteOpen(true); }}>
-              Paleta de comandos
-            </AppButton>
-          </AppStack>
-        </AppStack>
-      </AppDrawer>
+      {menuOpen && !desktop && mobileMenu ? (
+        <mobileMenu.default
+          items={menuItems(false)}
+          section={section}
+          connectLabel={connectLabel}
+          onClose={() => setMenuOpen(false)}
+          onShortcuts={() => setHelpOpen(true)}
+          onTour={startTour}
+          onPalette={() => setPaletteOpen(true)}
+          onConnect={connection.openDialog}
+        />
+      ) : null}
 
-      <Suspense fallback={null}>
-        {paletteOpen ? <CommandPalette surveyId={surveyId} onClose={closePalette} onShowShortcuts={showShortcuts} onStartTour={startTour} /> : null}
-        {helpOpen ? <ShortcutsModal onClose={() => setHelpOpen(false)} /> : null}
-      </Suspense>
-      <Tour />
+      {paletteOpen && palette ? (
+        <palette.CommandPalette surveyId={surveyId} onClose={closePalette} onShowShortcuts={showShortcuts} onStartTour={startTour} />
+      ) : null}
+      {helpOpen && shortcuts ? <shortcuts.ShortcutsModal onClose={() => setHelpOpen(false)} /> : null}
+      {tourModule ? <tourModule.Tour /> : null}
     </AppLayout>
   );
 }

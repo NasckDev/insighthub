@@ -16,7 +16,8 @@ const STRIPES = { symbol: 'rect', rotation: Math.PI / 4, dashArrayX: [1, 0], das
 
 export function divergingOption(stats: readonly SegmentDelta[], dimension: SegmentDimension, p: Palette): AppChartOption {
   const span = Math.max(MIN_SPAN, ...stats.map((stat) => Math.abs(stat.delta)));
-  const bound = Math.ceil(span / 5) * 5;
+  // Room beyond the longest bar for its own label, so the value never runs into the segment name.
+  const bound = Math.ceil((span * 1.4) / 5) * 5;
   const names = stats.map((stat) => segmentLabel(dimension, stat.segment));
   return {
     grid: { left: 8, right: 32, top: 8, bottom: 24, containLabel: true },
@@ -68,8 +69,13 @@ export function divergingOption(stats: readonly SegmentDelta[], dimension: Segme
         barWidth: 22,
         data: stats.map((stat) => {
           const color = stat.delta >= 0 ? p.promoterBar : p.detractorBar;
+          // A bar that fills most of the axis has no room outside for its value, so the value sits on the bar, on a chip.
+          const crowded = Math.abs(stat.delta) / bound > 0.55;
           return {
             value: stat.delta,
+            label: crowded
+              ? { position: stat.delta < 0 ? 'insideLeft' : 'insideRight', backgroundColor: p.surface, borderRadius: 4, padding: [2, 5] }
+              : undefined,
             itemStyle: { color, borderRadius: stat.delta >= 0 ? [0, 6, 6, 0] : [6, 0, 0, 6], ...(stat.lowSample ? { decal: STRIPES, borderColor: color, borderWidth: 1.5 } : {}) },
           };
         }),

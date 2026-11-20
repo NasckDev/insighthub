@@ -1,4 +1,4 @@
-import { Empty } from 'antd';
+import Empty from 'antd/es/empty';
 import type { ReactNode } from 'react';
 import { AppCard } from './app-card';
 import { Illustration, type IllustrationName } from './illustrations';

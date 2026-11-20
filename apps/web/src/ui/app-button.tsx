@@ -1,4 +1,5 @@
-import { Button, Tooltip, type ButtonProps } from 'antd';
+import Button from 'antd/es/button';
+import type { ButtonProps } from 'antd';
 import type { ReactNode, Ref } from 'react';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'link';
@@ -34,17 +35,4 @@ export function AppButton({ variant = 'secondary', size = 'md', buttonRef, ref, 
     assign(buttonRef, node);
   };
   return <Button ref={merged} type={TYPE[variant]} size={SIZE[size]} {...rest} />;
-}
-
-export interface AppIconButtonProps extends Omit<AppButtonProps, 'children' | 'icon'> {
-  /** Required: the accessible name and the tooltip. */
-  label: string;
-  icon: ReactNode;
-  tooltip?: boolean;
-}
-
-/** Button with only an icon. It always has a name for screen readers and a tooltip for everyone else. */
-export function AppIconButton({ label, icon, tooltip = true, variant = 'ghost', size = 'md', ...rest }: AppIconButtonProps) {
-  const button = <AppButton variant={variant} size={size} icon={icon} aria-label={label} {...rest} />;
-  return tooltip ? <Tooltip title={label}>{button}</Tooltip> : button;
 }

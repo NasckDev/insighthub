@@ -1,4 +1,4 @@
-import { Segmented } from 'antd';
+import Segmented from 'antd/es/segmented';
 import type { ReactNode } from 'react';
 
 export interface AppSegmentedOption<T extends string> {

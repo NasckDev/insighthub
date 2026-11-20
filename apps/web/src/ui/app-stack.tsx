@@ -1,4 +1,3 @@
-import { Typography } from 'antd';
 import type { CSSProperties, ElementType, ReactNode } from 'react';
 
 type Gap = 1 | 2 | 3 | 4 | 5;
@@ -105,14 +104,15 @@ export interface AppTitleProps {
   className?: string;
 }
 
-const TITLE_SIZE: Record<TitleLevel, string> = { 1: '2.5rem', 2: '1.4rem', 3: '1.15rem', 4: '1rem' };
+const HEADING = { 1: 'h1', 2: 'h2', 3: 'h3', 4: 'h4' } as const;
 
-/** Heading in the display serif. Pick the level for the outline, not for the size. */
+/** Heading in the display serif. Pick the level for the outline, not for the size (`ih-title-N` sets the size). */
 export function AppTitle({ level = 2, children, id, className }: AppTitleProps) {
+  const Tag = HEADING[level];
   return (
-    <Typography.Title level={level} id={id} className={`ih-display ${className ?? ''}`} style={{ margin: 0, fontSize: TITLE_SIZE[level] }}>
+    <Tag id={id} className={`ih-display ih-title ih-title-${level} ${className ?? ''}`}>
       {children}
-    </Typography.Title>
+    </Tag>
   );
 }
 
@@ -126,29 +126,18 @@ export interface AppTextProps {
   className?: string;
 }
 
-const TONE_COLOR: Record<NonNullable<AppTextProps['tone']>, string | undefined> = {
-  default: undefined,
-  muted: 'var(--ih-muted)',
-  promoter: 'var(--ih-promoter)',
-  passive: 'var(--ih-passive)',
-  detractor: 'var(--ih-detractor)',
-};
-
-export function AppText({ children, tone = 'default', strong, small, block, tabular, className }: AppTextProps) {
-  const style: CSSProperties = { color: TONE_COLOR[tone], fontSize: small ? '0.8125rem' : undefined, display: block ? 'block' : undefined };
-  return (
-    <Typography.Text strong={strong} className={tabular ? `ih-tabular ${className ?? ''}` : className} style={style}>
-      {children}
-    </Typography.Text>
-  );
+function textClasses({ tone = 'default', strong, small, block, tabular, className }: AppTextProps): string {
+  return ['ih-text', `ih-tone-${tone}`, strong ? 'ih-strong' : '', small ? 'ih-small' : '', block ? 'ih-block' : '', tabular ? 'ih-tabular' : '', className ?? '']
+    .filter(Boolean)
+    .join(' ');
 }
 
-export function AppParagraph({ children, tone = 'default', small, className }: Omit<AppTextProps, 'block' | 'strong' | 'tabular'>) {
-  return (
-    <Typography.Paragraph className={className} style={{ margin: 0, color: TONE_COLOR[tone], fontSize: small ? '0.8125rem' : undefined }}>
-      {children}
-    </Typography.Paragraph>
-  );
+export function AppText(props: AppTextProps) {
+  return <span className={textClasses(props)}>{props.children}</span>;
+}
+
+export function AppParagraph(props: Omit<AppTextProps, 'block' | 'strong' | 'tabular'>) {
+  return <p className={`${textClasses(props)} ih-paragraph`}>{props.children}</p>;
 }
 
 /** Stacked bar that shows how a total splits in parts (detractors, passives, promoters). */

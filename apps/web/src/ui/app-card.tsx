@@ -1,4 +1,5 @@
-import { Card, type CardProps } from 'antd';
+import Card from 'antd/es/card';
+import type { CardProps } from 'antd';
 import type { ReactNode } from 'react';
 
 export interface AppCardProps extends Omit<CardProps, 'variant' | 'size' | 'bordered'> {

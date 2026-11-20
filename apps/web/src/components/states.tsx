@@ -1,12 +1,11 @@
 import type { UseQueryResult } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { DataError } from '../data';
-import { AppAlert, AppButton, AppEmpty, AppResult, AppSkeleton, AppSkeletonCards, KeyOutlined, ReloadOutlined, type IllustrationName } from '../ui';
+import { AppAlert, AppButton, AppEmpty, AppResult, AppSkeletonCards, KeyOutlined, ReloadOutlined, type IllustrationName } from '../ui';
 import { useConnection } from './connection';
+import { LoadingBlock } from './loading';
 
-export function LoadingBlock({ label = 'Carregando', height = 120 }: { label?: string; height?: number }) {
-  return <AppSkeleton label={label} height={height} />;
-}
+export { LoadingBlock };
 
 /** Skeleton shaped like a row of KPI cards. */
 export function KpiSkeleton({ label = 'Carregando indicadores' }: { label?: string }) {

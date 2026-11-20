@@ -1,4 +1,5 @@
-import { Tag, type TagProps } from 'antd';
+import Tag from 'antd/es/tag';
+import type { TagProps } from 'antd';
 import type { ReactNode } from 'react';
 import { FrownOutlined, MehOutlined, SmileOutlined } from './icons';
 

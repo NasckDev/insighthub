@@ -1,7 +1,7 @@
 import { sentimentLabel, type Theme, type ThemeStat } from '@insighthub/core';
 import { useMemo } from 'react';
 import { formatNps, formatNumber } from '../../lib/format';
-import { AppButton, AppChart, FONT_DISPLAY, FONT_SANS, type AppChartOption, type Palette } from '../../ui';
+import { AppButton, AppChart, FONT_DISPLAY, FONT_SANS, useIsPhone, type AppChartOption, type Palette } from '../../ui';
 import { SENTIMENT_STYLE, escapeHtml, tooltipBox, useChartPalette } from './chart-theme';
 
 interface TreemapChartProps {
@@ -22,7 +22,9 @@ function tileFill(sentiment: ReturnType<typeof sentimentLabel>, p: Palette): { c
   return { color: p.accentSoft, decal: STRIPES };
 }
 
-export function treemapOption(themes: readonly ThemeStat[], selected: Theme | undefined, p: Palette): AppChartOption {
+export function treemapOption(themes: readonly ThemeStat[], selected: Theme | undefined, p: Palette, compact = false): AppChartOption {
+  // Narrow screens cut the map into narrow tiles, so the type shrinks to keep a word like "Integrações" whole.
+  const size = compact ? { name: 14, count: 22, sent: 11, line: [18, 26, 15] } : { name: 18, count: 30, sent: 12, line: [24, 38, 18] };
   return {
     tooltip: {
       ...tooltipBox(p),
@@ -48,7 +50,7 @@ export function treemapOption(themes: readonly ThemeStat[], selected: Theme | un
         bottom: 0,
         squareRatio: 1,
         itemStyle: { gapWidth: 4, borderColor: p.surface, borderWidth: 0 },
-        label: { show: true, position: 'insideTopLeft', overflow: 'truncate', padding: [10, 12] },
+        label: { show: true, position: 'insideTopLeft', overflow: 'truncate', padding: compact ? [8, 8] : [10, 12] },
         data: themes.map((stat) => {
           const sentiment = sentimentLabel(stat.sentiment);
           const fill = tileFill(sentiment, p);
@@ -62,9 +64,9 @@ export function treemapOption(themes: readonly ThemeStat[], selected: Theme | un
             label: {
               formatter: `{name|${stat.label}}\n{count|${formatNumber(stat.mentions)}}\n{sent|${SENTIMENT_STYLE[sentiment].label} · NPS ${formatNps(stat.sentiment)}${stat.lowSample ? ' · amostra pequena' : ''}}`,
               rich: {
-                name: { fontFamily: FONT_DISPLAY, fontSize: 18, fontWeight: 600, color: p.fg, lineHeight: 24 },
-                count: { fontFamily: FONT_DISPLAY, fontSize: 30, fontWeight: 600, color: p.fg, lineHeight: 38 },
-                sent: { fontFamily: FONT_SANS, fontSize: 12, fontWeight: 600, color: p[sentiment === 'positive' ? 'promoter' : sentiment === 'mixed' ? 'passive' : 'detractor'], lineHeight: 18 },
+                name: { fontFamily: FONT_DISPLAY, fontSize: size.name, fontWeight: 600, color: p.fg, lineHeight: size.line[0] },
+                count: { fontFamily: FONT_DISPLAY, fontSize: size.count, fontWeight: 600, color: p.fg, lineHeight: size.line[1] },
+                sent: { fontFamily: FONT_SANS, fontSize: size.sent, fontWeight: 600, color: p[sentiment === 'positive' ? 'promoter' : sentiment === 'mixed' ? 'passive' : 'detractor'], lineHeight: size.line[2] },
               },
             },
           };
@@ -78,7 +80,8 @@ export function treemapOption(themes: readonly ThemeStat[], selected: Theme | un
 /** Treemap of themes: area is the number of mentions; the fill pattern, the word and the number are the sentiment. */
 export function TreemapChart({ themes, selected, onSelect }: TreemapChartProps) {
   const palette = useChartPalette();
-  const option = useMemo(() => treemapOption(themes, selected, palette), [themes, selected, palette]);
+  const compact = useIsPhone();
+  const option = useMemo(() => treemapOption(themes, selected, palette, compact), [themes, selected, palette, compact]);
   const description = themes
     .map((stat) => `${stat.label}: ${stat.mentions} menções, sentimento ${SENTIMENT_STYLE[sentimentLabel(stat.sentiment)].label.toLowerCase()}, NPS ${formatNps(stat.sentiment)}`)
     .join('; ');

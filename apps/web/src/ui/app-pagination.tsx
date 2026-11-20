@@ -1,4 +1,4 @@
-import { Pagination } from 'antd';
+import Pagination from 'antd/es/pagination';
 import { useIsPhone } from './theme';
 
 export interface AppPaginationProps {

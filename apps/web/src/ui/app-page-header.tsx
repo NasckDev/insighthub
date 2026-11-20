@@ -1,4 +1,4 @@
-import { Breadcrumb } from 'antd';
+import Breadcrumb from 'antd/es/breadcrumb';
 import type { ReactNode } from 'react';
 
 export interface AppBreadcrumbItem {

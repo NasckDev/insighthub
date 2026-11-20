@@ -1,8 +1,11 @@
-import { App, ConfigProvider } from 'antd';
+import ConfigProvider from 'antd/es/config-provider';
 import ptBR from 'antd/locale/pt_BR';
-import { useMemo, type ReactNode } from 'react';
+import { lazy, Suspense, useMemo, type ReactNode } from 'react';
 import { buildTheme, useCompactControls, useThemeMode, type ThemeMode } from './theme';
 import './ui.css';
+
+// Message and notification holders: loaded after the first paint, see `useToast`.
+const ToastHost = lazy(() => import('./toast-host'));
 
 interface AppProviderProps {
   children: ReactNode;
@@ -13,7 +16,7 @@ interface AppProviderProps {
 }
 
 /**
- * Theme, locale and the `App` context (message, notification and modal hooks) for everything below it.
+ * Theme and locale for everything below it.
  * Mounted once in `main.tsx` and in the Storybook preview, so stories look exactly like the app.
  */
 export function AppProvider({ children, mode, compact }: AppProviderProps) {
@@ -24,7 +27,10 @@ export function AppProvider({ children, mode, compact }: AppProviderProps) {
   const theme = useMemo(() => buildTheme(resolvedMode, { compact: resolvedCompact }), [resolvedMode, resolvedCompact]);
   return (
     <ConfigProvider theme={theme} locale={ptBR} componentSize="middle">
-      <App component={false}>{children}</App>
+      {children}
+      <Suspense fallback={null}>
+        <ToastHost />
+      </Suspense>
     </ConfigProvider>
   );
 }

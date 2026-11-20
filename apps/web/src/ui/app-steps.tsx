@@ -1,4 +1,4 @@
-import { Steps } from 'antd';
+import Steps from 'antd/es/steps';
 import type { ReactNode } from 'react';
 
 export interface AppStepItem {

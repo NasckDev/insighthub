@@ -1,5 +1,3 @@
-import { Skeleton } from 'antd';
-
 export interface AppSkeletonProps {
   /** Read by screen readers: "Carregando respostas…". */
   label?: string;
@@ -8,50 +6,34 @@ export interface AppSkeletonProps {
   rows?: number;
 }
 
-/** Loading block with shimmer. It is a live region, so the wait is announced once. */
-export function AppSkeleton({ label = 'Carregando', height, rows = 4 }: AppSkeletonProps) {
-  return (
-    <div role="status" aria-live="polite" style={height ? { minHeight: height } : undefined}>
-      <span className="ih-sr-only" style={SR_ONLY}>
-        {label}…
-      </span>
-      <Skeleton active paragraph={{ rows }} title />
-    </div>
-  );
-}
-
-const SR_ONLY = {
-  position: 'absolute',
-  width: 1,
-  height: 1,
-  margin: -1,
-  padding: 0,
-  overflow: 'hidden',
-  clip: 'rect(0 0 0 0)',
-  whiteSpace: 'nowrap',
-  border: 0,
-} as const;
-
 /** Visually hidden text for screen readers. */
 export function AppSrOnly({ children }: { children: React.ReactNode }) {
-  return <span style={SR_ONLY}>{children}</span>;
+  return <span className="ih-sr-only">{children}</span>;
 }
 
-export function AppSkeletonInput() {
-  return <Skeleton.Input active block />;
+/**
+ * Loading block with shimmer, made of plain elements (the Ant Design Skeleton is not needed in the first
+ * load). It is a live region, so the wait is announced once.
+ */
+export function AppSkeleton({ label = 'Carregando', height, rows = 4 }: AppSkeletonProps) {
+  return (
+    <div role="status" aria-live="polite" className="ih-skeleton" style={height ? { minHeight: height } : undefined}>
+      <AppSrOnly>{label}…</AppSrOnly>
+      <span aria-hidden="true" className="ih-skeleton-line ih-skeleton-title" />
+      {Array.from({ length: rows }, (_, index) => (
+        <span key={index} aria-hidden="true" className="ih-skeleton-line" style={{ width: index === rows - 1 ? '60%' : '100%' }} />
+      ))}
+    </div>
+  );
 }
 
 /** Row of placeholder cards, shaped like the KPI cards it stands for. */
 export function AppSkeletonCards({ count = 4, label = 'Carregando indicadores' }: { count?: number; label?: string }) {
   return (
     <div role="status" aria-live="polite" className="ih-grid ih-grid--tight" style={{ '--cols-base': 2, '--cols-lg': count } as React.CSSProperties}>
-      <span style={SR_ONLY}>{label}…</span>
+      <AppSrOnly>{label}…</AppSrOnly>
       {Array.from({ length: count }, (_, index) => (
-        <div key={index} aria-hidden="true">
-          <Skeleton.Node active style={{ width: '100%', height: 112 }}>
-            <span />
-          </Skeleton.Node>
-        </div>
+        <div key={index} aria-hidden="true" className="ih-skeleton-card" />
       ))}
     </div>
   );

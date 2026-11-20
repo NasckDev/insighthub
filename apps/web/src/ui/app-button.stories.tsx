@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { fn } from 'storybook/test';
-import { AppButton, AppIconButton } from './app-button';
+import { AppButton } from './app-button';
+import { AppIconButton } from './app-icon-button';
 import { DeleteOutlined, EditOutlined, ReloadOutlined } from './icons';
 
 const meta = {

@@ -2,6 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { renderApp } from './test/render-app';
+import { warmLazyModules } from './test/warm';
 
 type AppRouter = ReturnType<typeof renderApp>['router'];
 
@@ -10,10 +11,10 @@ function searchOf(router: AppRouter) {
   return router.state.matches[router.state.matches.length - 1]?.search ?? {};
 }
 
-// Warm the lazily loaded table chunk once, so a slow first transform never eats a test's time budget.
+// Warm every lazily loaded chunk once, so a slow first transform never eats a test's time budget.
 beforeAll(async () => {
-  await import('./components/charts/chart-tables');
-}, 120_000);
+  await warmLazyModules();
+}, 240_000);
 
 const SURVEY = '/s/s-atlas-q3';
 const TABLE_NAME = 'Respostas da pesquisa';

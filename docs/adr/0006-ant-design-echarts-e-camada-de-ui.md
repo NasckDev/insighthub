@@ -18,8 +18,14 @@ O dono pediu para trocar o design feito à mão pelo padrão de UI dele: Ant Des
 - **Datas**: `AppDatePicker` trabalha com strings ISO (o formato dos filtros na URL) e carrega o calendário e o `dayjs` sob demanda.
 - **Storybook 10** em `apps/web` com stories ao lado de cada wrapper (estados e controles), tema claro/escuro na barra e o addon de acessibilidade. `build-storybook` roda no CI e o resultado é publicado em `/storybook/` junto da demo.
 
+- **Primeiro carregamento enxuto** (de 401,5 kB para 246,4 kB gzip, medido com o mesmo método do ADR 0005). Investigado com `rollup-plugin-visualizer` (`ANALYZE=1 npm run build -w @insighthub/web` gera `dist-stats.json`). O que pesava e o que foi feito:
+  - o `package.json` do web declara `sideEffects: ["**/*.css"]`, para o barrel `ui/index.ts` ser sacudido; os imports do Ant Design são por caminho direto (`antd/es/button`), nunca pelo índice do pacote; cada ícone reexportado leva `/*#__PURE__*/`;
+  - saíram da entrada, e carregam sob demanda: o `AppSelect` (rc-select e lista virtual), o calendário, o diálogo "Conectar à API" (formulário e campos), o tour (`Steps`), o menu "Mais opções" do celular, o menu da conta (`Dropdown`), as telas de erro e de "não encontrada" (`Result`, `Empty`), o `SurveyLayout`, as tabelas alternativas dos gráficos e o código dos avisos;
+  - saíram da entrada, por serem substituíveis sem perda: o componente `App` do antd (traria `Modal`, `message` e `notification`; os avisos usam as APIs estáticas com o tema entregue por `ConfigProvider.config`), o `Tooltip` dos botões de ícone (agora `title` nativo), o `Menu` da barra lateral (lista simples de links, `AppSideNav`), o `Typography` (elementos nativos com classes do tema) e o `Skeleton` (blocos de CSS).
+  - O que resta é o piso do Ant Design com tema: `ConfigProvider` (cssinjs, trigger e contexto de formulário), `Layout`, `Button` e `Dropdown` mais React, TanStack e Zod.
+
 ## Consequências
 
-- O Ant Design pesa: o JavaScript do primeiro carregamento passa de 173,6 kB para o valor do README, e o ECharts (203 kB gzip) vem depois da primeira pintura. Em troca saem Tailwind, `motion` e `lucide-react`, e some a matemática própria de gráficos (`curve.ts`).
+- O Ant Design pesa: o JavaScript do primeiro carregamento passa de 173,6 kB para 246,4 kB, e o ECharts (203 kB gzip) vem depois da primeira pintura. Quem abre o Painel baixa mais do que isso no total (veja o README). Em troca saem Tailwind, `motion` e `lucide-react`, e some a matemática própria de gráficos (`curve.ts`).
 - Cada novo componente de tela deve nascer como wrapper em `src/ui`, com story.
 - Foram necessários ajustes para testar: `NODE_ENV=development` no Vitest (os pacotes `rc-*` devolvem o id constante `test-id` em `NODE_ENV=test`, o que quebra `aria-labelledby`) e um stub do `chart-canvas`, já que o jsdom não tem layout.

@@ -1,4 +1,5 @@
-import { Checkbox, type CheckboxProps } from 'antd';
+import Checkbox from 'antd/es/checkbox';
+import type { CheckboxProps } from 'antd';
 import type { ReactNode } from 'react';
 
 export interface AppCheckboxProps extends Omit<CheckboxProps, 'children'> {

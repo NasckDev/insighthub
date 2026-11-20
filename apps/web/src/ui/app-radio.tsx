@@ -1,4 +1,4 @@
-import { Radio } from 'antd';
+import Radio from 'antd/es/radio';
 import type { ReactNode } from 'react';
 
 export interface AppRadioCardOption<T extends string> {

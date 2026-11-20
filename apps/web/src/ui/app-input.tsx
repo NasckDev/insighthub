@@ -1,6 +1,7 @@
-import { Input, type GetProps, type InputProps, type InputRef } from 'antd';
+import Input from 'antd/es/input';
+import type { GetProps, InputProps, InputRef } from 'antd';
 import type { Ref } from 'react';
-import { AppIconButton } from './app-button';
+import { AppIconButton } from './app-icon-button';
 import { CloseCircleFilled, SearchOutlined } from './icons';
 import type { ControlSize } from './app-button';
 

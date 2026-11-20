@@ -1,4 +1,6 @@
-import { Dropdown, Menu, type MenuProps } from 'antd';
+import Dropdown from 'antd/es/dropdown';
+import Menu from 'antd/es/menu';
+import type { MenuProps } from 'antd';
 import type { ReactNode } from 'react';
 
 export interface AppMenuItem {

@@ -1,4 +1,4 @@
-import { Drawer } from 'antd';
+import Drawer from 'antd/es/drawer';
 import type { ReactNode } from 'react';
 import { useIsPhone } from './theme';
 

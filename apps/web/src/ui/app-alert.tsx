@@ -1,4 +1,5 @@
-import { Alert, Result } from 'antd';
+import Alert from 'antd/es/alert';
+import Result from 'antd/es/result';
 import type { ReactNode } from 'react';
 import { Illustration } from './illustrations';
 

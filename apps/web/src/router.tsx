@@ -9,22 +9,23 @@ import {
   type RouterHistory,
 } from '@tanstack/react-router';
 import { AppShell } from './components/app-shell';
-import { EmptyState, ErrorState, LoadingBlock } from './components/states';
+import { lazy, Suspense } from 'react';
+import { LoadingBlock } from './components/loading';
 import { parseSearchString, stringifySearchObject, validateSurveySearch } from './lib/search';
-import { SurveyLayout } from './routes/survey-layout';
 
 import { DEFAULT_SURVEY_ID } from './lib/constants';
 
 export { DEFAULT_SURVEY_ID };
 
-/** Anything a screen throws (bad address, broken data) lands here in plain language, never as a blank page. */
-function RouteError({ error, reset }: { error: unknown; reset: () => void }) {
+// Failure screens are rarely seen, so they load on demand and keep Ant Design's Result and Empty out of the entry.
+const RouteErrorLazy = lazy(() => import('./components/route-failure').then((m) => ({ default: m.RouteError })));
+const NotFoundLazy = lazy(() => import('./components/route-failure').then((m) => ({ default: m.NotFound })));
+
+function RouteError(props: { error: unknown; reset: () => void }) {
   return (
-    <ErrorState
-      title="Algo deu errado nesta tela"
-      error={new Error(error instanceof Error && error.message ? 'Não foi possível montar esta tela com os dados do endereço.' : 'Erro inesperado.')}
-      onRetry={reset}
-    />
+    <Suspense fallback={<LoadingBlock label="Carregando" height={160} />}>
+      <RouteErrorLazy {...props} />
+    </Suspense>
   );
 }
 
@@ -35,11 +36,9 @@ function RoutePending() {
 const rootRoute = createRootRoute({
   component: AppShell,
   notFoundComponent: () => (
-    <EmptyState
-      title="Página não encontrada"
-      description="Use o menu para voltar a uma tela existente."
-      illustration="search"
-    />
+    <Suspense fallback={null}>
+      <NotFoundLazy />
+    </Suspense>
   ),
 });
 
@@ -55,7 +54,7 @@ const surveyRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: 's/$surveyId',
   validateSearch: validateSurveySearch,
-  component: SurveyLayout,
+  component: lazyRouteComponent(() => import('./routes/survey-layout'), 'SurveyLayout'),
 });
 
 const surveyIndexRoute = createRoute({

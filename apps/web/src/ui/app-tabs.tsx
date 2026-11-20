@@ -1,4 +1,4 @@
-import { Tabs } from 'antd';
+import Tabs from 'antd/es/tabs';
 import type { ReactNode } from 'react';
 
 export interface AppTabItem {

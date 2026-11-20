@@ -1,4 +1,4 @@
-import { Modal } from 'antd';
+import Modal from 'antd/es/modal';
 import type { ReactNode } from 'react';
 
 export type ModalSize = 'sm' | 'md' | 'lg';

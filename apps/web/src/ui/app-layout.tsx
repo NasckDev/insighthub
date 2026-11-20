@@ -1,4 +1,4 @@
-import { Layout } from 'antd';
+import Layout from 'antd/es/layout';
 import type { CSSProperties, ReactNode, Ref } from 'react';
 
 export function AppLayout({ children, hasSider = false }: { children: ReactNode; hasSider?: boolean }) {

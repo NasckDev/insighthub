@@ -1,4 +1,6 @@
-import { List, Table, type TableProps } from 'antd';
+import List from 'antd/es/list';
+import Table from 'antd/es/table';
+import type { TableProps } from 'antd';
 import { useMemo, type ComponentPropsWithoutRef, type ReactNode } from 'react';
 import { AppCard } from './app-card';
 import { useIsPhone } from './theme';
