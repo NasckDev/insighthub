@@ -2,6 +2,7 @@ import type { ComponentType } from 'react';
 import {
   ApartmentOutlined as AntApartmentOutlined,
   ApiOutlined as AntApiOutlined,
+  AppstoreOutlined as AntAppstoreOutlined,
   ArrowLeftOutlined as AntArrowLeftOutlined,
   ArrowRightOutlined as AntArrowRightOutlined,
   BarChartOutlined as AntBarChartOutlined,
@@ -29,6 +30,7 @@ import {
   MenuOutlined as AntMenuOutlined,
   MessageOutlined as AntMessageOutlined,
   MoonOutlined as AntMoonOutlined,
+  PlusOutlined as AntPlusOutlined,
   PushpinOutlined as AntPushpinOutlined,
   QuestionCircleOutlined as AntQuestionCircleOutlined,
   ReloadOutlined as AntReloadOutlined,
@@ -67,6 +69,7 @@ function decorative(Icon: ComponentType<IconProps>): ComponentType<IconProps> {
 
 export const ApartmentOutlined = /*#__PURE__*/ decorative(AntApartmentOutlined);
 export const ApiOutlined = /*#__PURE__*/ decorative(AntApiOutlined);
+export const AppstoreOutlined = /*#__PURE__*/ decorative(AntAppstoreOutlined);
 export const ArrowLeftOutlined = /*#__PURE__*/ decorative(AntArrowLeftOutlined);
 export const ArrowRightOutlined = /*#__PURE__*/ decorative(AntArrowRightOutlined);
 export const BarChartOutlined = /*#__PURE__*/ decorative(AntBarChartOutlined);
@@ -94,6 +97,7 @@ export const MehOutlined = /*#__PURE__*/ decorative(AntMehOutlined);
 export const MenuOutlined = /*#__PURE__*/ decorative(AntMenuOutlined);
 export const MessageOutlined = /*#__PURE__*/ decorative(AntMessageOutlined);
 export const MoonOutlined = /*#__PURE__*/ decorative(AntMoonOutlined);
+export const PlusOutlined = /*#__PURE__*/ decorative(AntPlusOutlined);
 export const PushpinOutlined = /*#__PURE__*/ decorative(AntPushpinOutlined);
 export const QuestionCircleOutlined = /*#__PURE__*/ decorative(AntQuestionCircleOutlined);
 export const ReloadOutlined = /*#__PURE__*/ decorative(AntReloadOutlined);

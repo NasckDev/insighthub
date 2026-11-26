@@ -13,7 +13,7 @@ Workspace editorial para times de pesquisa e produto: ler o NPS, ouvir o que as 
 
 A interface é feita com **Ant Design e Apache ECharts**, atrás de uma camada própria (`apps/web/src/ui`) e documentada num **Storybook** (publicado em [/storybook/](https://nasckdev.github.io/insighthub/storybook/)). Ela roda **100% no navegador**, sem servidor: o mesmo `core` (NPS, filtros, temas, comparação, síntese extrativa) processa o seed fictício localmente, com latência simulada. Demo publicada: <https://nasckdev.github.io/insighthub/>.
 
-| Painel: NPS em medidor, evolução, temas e falas | Comparar segmentos com aviso de amostra pequena |
+| Painel: NPS em destaque, evolução, temas, síntese assistida e falas | Comparar segmentos com aviso de amostra pequena |
 | --- | --- |
 | ![Painel da pesquisa no desktop](docs/prints/visao-geral-desktop.png) | ![Comparação de segmentos com barras divergentes e aviso de amostra pequena](docs/prints/comparar-amostra-pequena-desktop.png) |
 
@@ -29,20 +29,20 @@ Outros prints em [`docs/prints/`](docs/prints): Filtros (`filtros-desktop.png`, 
 
 ## O que existe em cada tela
 
-- **Painel**: medidor de NPS com as quatro zonas de leitura, evolução semanal em área suave, distribuição das notas, temas principais com sentimento e **falas em destaque**. Filtros de período, plano, região, função, tema e busca vivem na URL (`#/s/s-atlas-q3/visao-geral?plan=pro&theme=suporte&from=2026-08-10`) e são validados pelos schemas Zod do `core`.
+- **Painel**: NPS em destaque (número grande em índigo, zona de leitura, promotores, neutros e detratores e a barra coral, névoa e índigo), evolução semanal com semanas de amostra pequena vazadas, temas mais citados com a barra de quem os cita, distribuição das notas, o painel **Síntese assistida** com perguntas prontas e **falas em destaque** em serifa itálica. Filtros de período, plano, região, função, tema e busca vivem na URL (`#/s/s-atlas-q3/visao-geral?plan=pro&theme=suporte&from=2026-08-10`) e são validados pelos schemas Zod do `core`.
 - **Respostas**: tabela do Ant Design com **facetas e contagens ao vivo** (no celular, dentro do `Drawer` de Filtros), busca com o termo destacado, ordenação, paginação, tags de tema e sentimento, e **painel lateral de detalhe** (folha inferior no celular). No celular a tabela vira lista de cartões.
 - **Temas**: **treemap do ECharts** em que a área é o volume e o preenchimento (liso, pontilhado, listrado) com a palavra é o sentimento. Clicar abre o drill-down com as falas, e dali você vai para a tabela filtrada ou pede a síntese só daquele tema.
 - **Comparar**: abas de plano, região ou função e **barras divergentes** contra o NPS geral, cartões lado a lado, destaque da maior diferença e **aviso de amostra pequena** (menos de 10 respostas): o segmento aparece listrado e com selo, nunca escondido.
 - **Síntese com IA**: cinco **modelos de pergunta** (resumo executivo, por que há detratores, o que os promotores valorizam, risco no plano Free, oportunidades), streaming com **cancelar** e **tentar de novo**, citações `[#id]` clicáveis que abrem a resposta e **salvar no quadro**.
 - **Quadro de insights**: cards com título e nota editáveis, exclusão com **desfazer** (aviso com ação), exportação em **Markdown e CSV** e **link compartilhável** que outra pessoa pode importar.
-- **Em todo lugar**: paleta de comandos (`Ctrl/⌘ K`) com busca real nos comentários, atalhos documentados no modal `?` (`G` e uma letra para ir a cada tela, `/` para buscar, `T` para o tema), tour opcional de 3 passos (um chip discreto no Painel, que nunca abre sozinho), tema claro/escuro com a escolha lembrada, toasts, esqueletos com brilho e ilustrações próprias nos estados vazios e de erro.
-- **Estados**: carregando, vazio, erro com "Tentar de novo" e resultado parcial em todas as telas. O seletor **Simular** na faixa da demo força "falhar a próxima chamada" e "respostas parciais".
+- **Em todo lugar**: paleta de comandos (`Ctrl/⌘ K`) com busca real nos comentários, atalhos documentados no modal `?` (`G` e uma letra para ir a cada tela, `/` para buscar, `T` para o tema), tour opcional de 3 passos (um chip discreto no Painel, que nunca abre sozinho), tema claro/escuro com a escolha lembrada, toasts, esqueletos e ilustrações próprias nos estados vazios e de erro. Os filtros ativos viram pílulas removíveis e o botão **Copiar link** leva a visão com os filtros.
+- **Estados**: carregando, vazio, erro com "Tentar de novo" e resultado parcial em todas as telas. O seletor **Simular falhas** no rodapé da demo força "falhar a próxima chamada" e "respostas parciais".
 
 ## Stack e licenças
 
 - **React 19, Vite, TanStack Router e Query**, TypeScript estrito, Zod na borda.
 - **Ant Design 6** para os componentes e **Apache ECharts 6** (`echarts/core` enxuto, renderizador SVG) para os gráficos, sempre através dos wrappers de `apps/web/src/ui`.
-- **Tema central** (`ui/theme.ts`): a paleta do InsightHub vira tokens do `ConfigProvider` (`colorPrimary`, `colorBgLayout`, `fontFamily`, `borderRadius`, `controlHeight`, tokens de Layout, Menu, Table e Card), com `theme.darkAlgorithm` no escuro. Fraunces nos títulos e números, Inter na interface (auto-hospedadas), petróleo `#0F766E`, coral `#E8604C`, papel `#FBF8F3`, tinta `#1B1B3A`, escuro `#0E1514`. As decisões estão no [ADR 0006](docs/adr/0006-ant-design-echarts-e-camada-de-ui.md).
+- **Tema central** (`ui/theme.ts`): a paleta do InsightHub vira tokens do `ConfigProvider` (`colorPrimary`, `colorBgLayout`, `fontFamily`, `borderRadius`, `controlHeight`, tokens de Layout, Menu, Table e Card), com `theme.darkAlgorithm` no escuro. Identidade "editorial de pesquisa": Instrument Sans em toda a interface e Instrument Serif itálico só nas falas dos respondentes (auto-hospedadas), índigo `#3D3DF5` para positivo e promotores, coral `#F2643D` para negativo só em gráficos e marcas (texto negativo em `#B8401E`), névoa `#D7D9E4` para neutros, tinta `#121528`, fundo `#F6F7FB`; no escuro, fundo `#0F1220`, superfície `#171B2E` e índigo `#9C9CFF`. Cartões de 20 px sem sombra, controles de 12 px, sem gradientes. As decisões estão no [ADR 0006](docs/adr/0006-ant-design-echarts-e-camada-de-ui.md).
 - **Proteção do padrão**: uma regra `no-restricted-imports` barra `antd`, `echarts`, `echarts-for-react`, `@ant-design/icons` e `dayjs` fora de `src/ui`. Todas as versões do `package.json` são exatas.
 
 | Dependência | Versão | Licença | Uso |
@@ -55,7 +55,7 @@ Outros prints em [`docs/prints/`](docs/prints): Filtros (`filtros-desktop.png`, 
 | react, react-dom | 19.3.1 | MIT | interface |
 | @tanstack/react-router, @tanstack/react-query | exatas no `package.json` | MIT | rotas por hash e cache |
 | zod | exata no `package.json` | MIT | validação |
-| @fontsource-variable/fraunces, @fontsource-variable/inter | exatas no `package.json` | OFL-1.1 | fontes auto-hospedadas |
+| @fontsource-variable/instrument-sans, @fontsource/instrument-serif | 5.3.0 | OFL-1.1 | fontes auto-hospedadas |
 | storybook, @storybook/react-vite, addon-a11y, addon-docs | 10.6.8 | MIT | documentação dos componentes (dev) |
 | rollup-plugin-visualizer | 7.1.3 | MIT | análise do bundle (dev, só com `ANALYZE=1`) |
 | vite, vitest, @playwright/test, @axe-core/playwright | exatas no `package.json` | MIT, MPL-2.0 (axe-core) | build e testes (dev) |
@@ -114,16 +114,18 @@ Copie `apps/web/dist` para onde quiser (ex.: `<site>/projetos/insighthub/`) e si
 
 Medido com gzip nível 9 sobre o `apps/web/dist` do build portátil, sempre com o mesmo método (os arquivos que o `index.html` baixa, incluindo os pré-carregados):
 
-| | Design à mão (antes) | Primeira versão com antd | **Agora** |
-| --- | --- | --- | --- |
-| JavaScript do primeiro carregamento | 173,6 kB | 401,5 kB | **246,4 kB** |
-| CSS do primeiro carregamento | 8,3 kB | 3,9 kB | 4,2 kB |
-| JavaScript baixado ao abrir o Painel (inclui o ECharts, depois da primeira pintura) | n/d (gráficos próprios, tudo dentro dos 173,6 kB mais as telas) | 625,6 kB | 618,3 kB |
-| JavaScript baixado ao abrir Respostas | n/d | 507,8 kB | 503,6 kB |
-| ECharts (`echarts/core`, SVG, sob demanda) | não havia | 203,3 kB | 203,3 kB |
-| Tabela do antd / calendário (sob demanda) | não havia | 56,7 / 35,6 kB | 56,4 / 35,7 kB |
-| Fontes WOFF2 (latim, sem CDN) | 127,5 kB | 127,5 kB | 127,5 kB |
-| `apps/web/dist` inteiro | 839 kB, 48 arquivos | 2.376 kB, 62 arquivos | 2.386 kB, 121 arquivos |
+| | Design à mão (antes) | Primeira versão com antd | Antd enxuto | **Identidade "editorial de pesquisa"** |
+| --- | --- | --- | --- | --- |
+| JavaScript do primeiro carregamento | 173,6 kB | 401,5 kB | 246,4 kB (252,3 kB refeito em 25/11 com as dependências atuais) | **252,1 kB** |
+| CSS do primeiro carregamento | 8,3 kB | 3,9 kB | 4,2 kB | 5,5 kB |
+| JavaScript baixado ao abrir o Painel (inclui o ECharts, depois da primeira pintura) | n/d (gráficos próprios, tudo dentro dos 173,6 kB mais as telas) | 625,6 kB | 618,3 kB | n/m |
+| JavaScript baixado ao abrir Respostas | n/d | 507,8 kB | 503,6 kB | n/m |
+| ECharts (`echarts/core`, SVG, sob demanda) | não havia | 203,3 kB | 203,3 kB | 204,9 kB (sem o gráfico de medidor) |
+| Tabela do antd / calendário (sob demanda) | não havia | 56,7 / 35,6 kB | 56,4 / 35,7 kB | n/m |
+| Fontes WOFF2 (latim, sem CDN) | 127,5 kB | 127,5 kB | 127,5 kB | 52,2 kB (Instrument Sans variável + Instrument Serif itálico) |
+| `apps/web/dist` inteiro | 839 kB, 48 arquivos | 2.376 kB, 62 arquivos | 2.386 kB, 121 arquivos | 2.357 kB, 122 arquivos |
+
+O redesign não mexeu no primeiro carregamento: o commit anterior, medido de novo no mesmo dia e pelo mesmo método, dá 252,3 kB, e o atual dá 252,1 kB (sai o medidor do ECharts, que não está na entrada; entram a paleta nova e o cartão de pesquisa ativa no menu). "n/m" é o que não foi medido de novo nesta rodada.
 
 O que derrubou o primeiro carregamento de 401,5 para 246,4 kB (investigado com `rollup-plugin-visualizer`: `ANALYZE=1 npm run build -w @insighthub/web` gera `apps/web/dist-stats.json` com o tamanho de cada módulo por chunk):
 
@@ -229,10 +231,10 @@ Números reais da última rodada (Vitest 5 e Playwright 1.65). Em máquina lenta
 | --- | --- | --- | --- |
 | `packages/core` | 8 | 79 | NPS (arredondamento simétrico), filtros (tema por palavra inteira, busca sem acento e por tema, datas reais, período invertido), ordenação, facetas, temas e sentimento com aviso de amostra pequena, falas em destaque sem quase-duplicatas, síntese e modelos de pergunta, texto sem NPS tautológico, saneamento de comentários, citações, treemap, domínio do quadro (escape de Markdown, CSV seguro, ids duplicados, link e seu limite), seed |
 | `apps/api` | 2 | 26 | Envelope, paginação, `sort` (SQL e em memória), paridade de busca com o navegador (acento, caixa, tema), 400/404, JSON inválido, `meta` honesto e `truncated`, SSE, CORS, preflight que não gasta limite, 429, token Bearer, prompt do Claude (delimitador por requisição, comentário hostil neutralizado) |
-| `apps/web` (unitários e de componente, app inteiro sobre a história em memória) | 16 | 200 | pares de contraste da paleta e dos tokens derivados do Ant Design nos dois temas; adaptador http (sort, 401/403, 4xx sem retry, carga compartilhada, token só na síntese, SSE malformado); "Conectar à API" (token só em memória, URL inválida, API fora do ar, voltar para a demo); síntese que não fica presa em "Gerando"; store do quadro (versão, migração, dedupe, outras abas); destaque com acento; painéis em portal e `Esc`; tour que nunca abre sozinho; busca sincronizada com a URL; datas inválidas; estados de carregando/vazio/erro/parcial; opções dos gráficos do ECharts (a instância é trocada por um marcador no jsdom); quadro (editar com foco, desfazer, importar link, link grande demais); paleta e atalhos |
-| `apps/web` E2E (Playwright + axe) | 3 | 43 | axe sem violações nas 6 telas × 2 temas em **1440 e 360 px** (24 testes); **geometria dos diálogos** (Filtros, paleta, atalhos, Mais, Conectar e detalhe da resposta dentro da viewport, em 1440, 768 e 390 px); axe e **alvos de toque de 44 px** em 6 telas a 390 px com toque; fluxos de painel, filtro, resposta (o `Esc` devolve o foco), síntese e quadro; busca por tema; tour como chip; primeiro Tab no "Pular para o conteúdo"; reload em rota interna sem erro de console nem 404 |
+| `apps/web` (unitários e de componente, app inteiro sobre a história em memória) | 17 | 214 | toda variável `--ih-*` lida pelo CSS e pelos componentes existe na paleta; pares de contraste da paleta e dos tokens derivados do Ant Design nos dois temas; adaptador http (sort, 401/403, 4xx sem retry, carga compartilhada, token só na síntese, SSE malformado); "Conectar à API" (token só em memória, URL inválida, API fora do ar, voltar para a demo); síntese que não fica presa em "Gerando"; store do quadro (versão, migração, dedupe, outras abas); destaque com acento; painéis em portal e `Esc`; tour que nunca abre sozinho; busca sincronizada com a URL; datas inválidas; estados de carregando/vazio/erro/parcial; opções dos gráficos do ECharts (a instância é trocada por um marcador no jsdom); quadro (editar com foco, desfazer, importar link, link grande demais); paleta e atalhos |
+| `apps/web` E2E (Playwright + axe) | 4 | 51 | **sem rolagem horizontal** (`scrollWidth <= clientWidth`) nas 6 telas em 320, 375, 390, 768, 1024, 1280, 1440 e 1920 px, nos dois temas (8 testes); axe sem violações nas 6 telas × 2 temas em **1440 e 360 px** (24 testes); **geometria dos diálogos** (Filtros, paleta, atalhos, Mais, Conectar e detalhe da resposta dentro da viewport, em 1440, 768 e 390 px); axe e **alvos de toque de 44 px** em 6 telas a 390 px com toque; fluxos de painel, filtro, resposta (o `Esc` devolve o foco), síntese e quadro; busca por tema; tour como chip; primeiro Tab no "Pular para o conteúdo"; reload em rota interna sem erro de console nem 404 |
 
-Total: **305 testes em Vitest** (79 + 26 + 200) e **43 E2E**. Lint, typecheck, `build:portable` e `build-storybook` limpos. O Storybook tem 130 histórias (32 componentes, mais a página de tema).
+Total: **319 testes em Vitest** (79 + 26 + 214) e **51 E2E**. Lint, typecheck, `build:portable` e `build-storybook` limpos. O Storybook tem 132 histórias em 33 páginas (componentes, gráficos, cartão do NPS e a página de tema).
 
 ## Roadmap
 

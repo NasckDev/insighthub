@@ -5,7 +5,7 @@ export const TOUR_STEPS = [
   {
     title: 'Comece pelo Painel',
     short: 'Painel',
-    body: 'O medidor mostra o NPS, o gráfico mostra a evolução e as falas em destaque dão voz ao número.',
+    body: 'O número grande é o NPS, o gráfico mostra a evolução e as falas em destaque dão voz ao número.',
   },
   {
     title: 'Filtre e compartilhe',

@@ -18,7 +18,7 @@ for (const size of [
     await page.getByRole('heading', { level: 1 }).waitFor();
 
     // Filtros: the dialog that used to open off screen (trapped by the blurred bar's containing block).
-    await page.getByRole('button', { name: /^Filtros/ }).click();
+    await page.getByRole('button', { name: /^Adicionar filtro/ }).click();
     const filters = page.getByRole('dialog', { name: 'Filtros' });
     await filters.waitFor();
     await expectInViewport(page, '[role="dialog"]', `Filtros (${size.name})`, 300);

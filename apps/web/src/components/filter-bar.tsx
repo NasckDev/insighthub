@@ -4,7 +4,7 @@ import { formatDate } from '../lib/format';
 import { NPS_SINGULAR, PLAN_LABELS, REGION_LABELS, ROLE_LABELS } from '../lib/labels';
 import { hasActiveFilters, type SurveySearch } from '../lib/search';
 import { usePatchSearch, useSurveySearch } from '../lib/use-survey-search';
-import { AppButton, AppDrawer, AppRow, AppSearchInput, AppStack, CloseOutlined, FilterOutlined } from '../ui';
+import { AppButton, AppDrawer, AppSearchInput, CloseOutlined, PlusOutlined } from '../ui';
 import { FacetPanel, toggled } from './facet-panel';
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -98,52 +98,51 @@ export function FilterBar({ facetsVisible = false }: FilterBarProps) {
   }
 
   return (
-    <section aria-label="Filtros">
-      <AppStack gap={2}>
-        <div className="ih-row ih-gap-2 ih-nowrap">
-          <div className="ih-fill">
-            <AppSearchInput
-              id="busca-global"
-              aria-label="Buscar nos comentários"
-              placeholder="Buscar nos comentários"
-              maxLength={MAX_SEARCH_LENGTH}
-              value={text}
-              onChange={setText}
-              onClear={() => apply({ q: undefined })}
-              onPressEnter={() => apply({ q: text.trim() || undefined })}
-              onBlur={() => {
-                const wanted = text.trim() || undefined;
-                if (wanted !== search.q) apply({ q: wanted });
-              }}
-            />
-          </div>
-          <span className={facetsVisible ? 'ih-hide-desktop' : undefined}>
-            <AppButton icon={<FilterOutlined />} aria-haspopup="dialog" onClick={() => setOpen(true)}>
-              Filtros{chips.length > 0 ? ` (${chips.length})` : ''}
-            </AppButton>
-          </span>
-        </div>
-
+    <section aria-label="Filtros" className="ih-filterbar">
+      <div className="ih-filterbar-search">
+        <AppSearchInput
+          id="busca-global"
+          aria-label="Buscar nos comentários"
+          placeholder="Buscar nos comentários"
+          maxLength={MAX_SEARCH_LENGTH}
+          value={text}
+          onChange={setText}
+          onClear={() => apply({ q: undefined })}
+          onPressEnter={() => apply({ q: text.trim() || undefined })}
+          onBlur={() => {
+            const wanted = text.trim() || undefined;
+            if (wanted !== search.q) apply({ q: wanted });
+          }}
+        />
+      </div>
+      <div className="ih-filterbar-pills">
         {chips.length > 0 ? (
-          <AppRow gap={2}>
-            <ul className="ih-row ih-gap-2" aria-label="Filtros ativos" style={{ margin: 0, padding: 0, listStyle: 'none' }}>
-              {chips.map((chip) => (
-                <li key={chip.key}>
-                  <AppButton size="sm" aria-label={`Remover filtro ${chip.text}`} onClick={() => apply(chip.remove)}>
-                    {chip.text}
-                    <CloseOutlined aria-hidden="true" />
-                  </AppButton>
-                </li>
-              ))}
-            </ul>
-            {hasActiveFilters(search) ? (
-              <AppButton size="sm" variant="link" onClick={clearAll}>
-                Limpar filtros
-              </AppButton>
-            ) : null}
-          </AppRow>
+          <ul className="ih-row ih-gap-2" aria-label="Filtros ativos">
+            {chips.map((chip) => (
+              <li key={chip.key}>
+                <button type="button" className="ih-filter-pill" aria-label={`Remover filtro ${chip.text}`} onClick={() => apply(chip.remove)}>
+                  {chip.text}
+                  <span aria-hidden="true" className="ih-filter-pill-x">
+                    <CloseOutlined />
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
         ) : null}
-      </AppStack>
+        <span className={facetsVisible ? 'ih-hide-desktop' : undefined}>
+          <button type="button" className="ih-filter-add" aria-haspopup="dialog" onClick={() => setOpen(true)}>
+            <PlusOutlined aria-hidden="true" />
+            Adicionar filtro
+          </button>
+        </span>
+        {hasActiveFilters(search) ? (
+          <AppButton size="sm" variant="link" onClick={clearAll}>
+            Limpar filtros
+          </AppButton>
+        ) : null}
+        <p className="ih-filterbar-hint">Os filtros ficam no link: copie para compartilhar esta visão.</p>
+      </div>
 
       <AppDrawer
         open={open}

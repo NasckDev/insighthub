@@ -11,29 +11,37 @@ const PAIRS: [keyof Palette, keyof Palette, number][] = [
   ['muted', 'surface', 4.5],
   ['muted', 'surface2', 4.5],
   ['primary', 'bg', 4.5],
+  ['primary', 'surface', 4.5],
+  ['primaryHover', 'surface', 4.5],
+  ['primaryHover', 'primarySoft', 4.5],
   ['primaryFg', 'primary', 4.5],
+  ['primaryFg', 'primaryHover', 4.5],
   ['promoter', 'primarySoft', 4.5],
-  ['passive', 'amberSoft', 4.5],
+  ['passive', 'neutralSoft', 4.5],
   ['detractor', 'accentSoft', 4.5],
-  ['plum', 'plumSoft', 4.5],
   ['promoter', 'surface', 4.5],
   ['passive', 'surface', 4.5],
   ['detractor', 'surface', 4.5],
   ['accentText', 'bg', 4.5],
+  ['accentText', 'surface', 4.5],
+  ['accentText', 'accentSoft', 4.5],
   ['dangerFg', 'dangerBg', 4.5],
   ['warnFg', 'warnBg', 4.5],
-  ['bannerFg', 'bannerBg', 4.5],
-  ['plum', 'surface', 4.5],
+  ['amberText', 'amberSoft', 4.5],
+  ['panelFg', 'panelBg', 4.5],
+  ['panelMuted', 'panelBg', 4.5],
+  ['panelLink', 'panelBg', 4.5],
   ['controlLine', 'bg', 3],
   ['controlLine', 'surface', 3],
   ['focus', 'bg', 3],
   ['focus', 'surface', 3],
   ['accent', 'surface', 3],
   ['amber', 'surface', 3],
-  ['primary', 'surface', 3],
+  ['success', 'surface', 3],
   ['promoterBar', 'surface', 3],
-  ['passiveBar', 'surface', 3],
   ['detractorBar', 'surface', 3],
+  // The mist (passiveBar) is never alone: the band, the bars and the tiles always carry the written number
+  // and a legend next to them, so it is decoration over text (WCAG 1.4.11 does not apply to it).
 ];
 
 const MODES: ThemeMode[] = ['light', 'dark'];
@@ -47,8 +55,8 @@ describe('palette contrast (WCAG AA), computed from the central theme', () => {
   }
 
   it('matches the documented brand colors in the light theme', () => {
-    expect(PALETTES.light).toMatchObject({ bg: '#fbf8f3', fg: '#1b1b3a', primary: '#0f766e', accent: '#e8604c' });
-    expect(PALETTES.dark.bg).toBe('#0e1514');
+    expect(PALETTES.light).toMatchObject({ bg: '#f6f7fb', fg: '#121528', primary: '#3d3df5', accent: '#f2643d', accentText: '#b8401e', neutral: '#d7d9e4' });
+    expect(PALETTES.dark).toMatchObject({ bg: '#0f1220', surface: '#171b2e', fg: '#f3f4fa', primary: '#9c9cff' });
   });
 });
 

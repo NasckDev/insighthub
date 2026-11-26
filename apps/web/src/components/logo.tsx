@@ -6,15 +6,14 @@ interface LogoMarkProps {
 
 const BRAND = PALETTES.light;
 
-/** InsightHub mark: three rising bars (the data) and a coral dot (the insight). It keeps the brand colors in both themes. */
-export function LogoMark({ size = 32 }: LogoMarkProps) {
+/** InsightHub mark: an indigo tile with three bars, the last one in coral (the insight). Brand colors in both themes. */
+export function LogoMark({ size = 30 }: LogoMarkProps) {
   return (
-    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" focusable="false">
-      <rect width="32" height="32" rx="9" fill={BRAND.primary} />
-      <rect x="7" y="17" width="4.5" height="8" rx="2" fill={BRAND.bg} />
-      <rect x="13.75" y="12" width="4.5" height="13" rx="2" fill={BRAND.bg} />
-      <rect x="20.5" y="15" width="4.5" height="10" rx="2" fill={BRAND.bg} opacity="0.7" />
-      <circle cx="22.75" cy="8.75" r="3.25" fill={BRAND.accent} />
+    <svg width={size} height={size} viewBox="0 0 30 30" aria-hidden="true" focusable="false">
+      <rect width="30" height="30" rx="9" fill={BRAND.primary} />
+      <rect x="8" y="15" width="3.5" height="7" rx="1.5" fill={BRAND.surface} />
+      <rect x="13.25" y="9" width="3.5" height="13" rx="1.5" fill={BRAND.surface} />
+      <rect x="18.5" y="12" width="3.5" height="10" rx="1.5" fill={BRAND.accent} />
     </svg>
   );
 }

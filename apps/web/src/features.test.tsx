@@ -70,7 +70,7 @@ describe('filters', () => {
     const user = userEvent.setup();
     const { router } = renderApp(`${SURVEY}/respostas`);
     await screen.findByRole('table', { name: 'Respostas da pesquisa' });
-    await user.click(screen.getByRole('button', { name: /^Filtros/ }));
+    await user.click(screen.getByRole('button', { name: /^Adicionar filtro/ }));
     const dialog = await screen.findByRole('dialog', { name: 'Filtros' });
     await user.click(await within(dialog).findByRole('checkbox', { name: /^Preço/ }));
     await waitFor(() => expect((searchOf(router) as { theme?: string }).theme).toBe('preço'));

@@ -7,7 +7,6 @@ import { ChartCard } from './chart-card';
 import { DistributionChart, NpsLegend } from './distribution-chart';
 import { DivergingChart } from './diverging-chart';
 import { DistributionTable, SegmentTable, ThemeTable, TimelineTable } from './chart-tables';
-import { NpsGauge } from './nps-gauge';
 import { TimelineChart } from './timeline-chart';
 import { TreemapChart } from './treemap-chart';
 
@@ -46,8 +45,6 @@ const meta = { title: 'Gráficos/Gráficos do InsightHub', parameters: { layout:
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const MedidorDeNps: Story = { render: () => <NpsGauge value={24} total={640} /> };
-export const MedidorEmZonaCritica: Story = { render: () => <NpsGauge value={-18} total={120} /> };
 export const EvolucaoSemanal: Story = { render: () => <TimelineChart points={WEEKS} /> };
 export const DistribuicaoDasNotas: Story = { render: () => <><DistributionChart bins={BINS} /><NpsLegend /></> };
 export const BarrasDivergentes: Story = { render: () => <DivergingChart stats={SEGMENTS} dimension="plan" overallNps={24} /> };

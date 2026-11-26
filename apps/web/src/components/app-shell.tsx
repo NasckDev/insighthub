@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query';
 import { Link, Outlet, useNavigate, useParams, useRouterState } from '@tanstack/react-router';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useFaultMode, type FaultController, type FaultMode } from '../data';
@@ -17,7 +18,6 @@ import {
   AppSideNav,
   AppSelect,
   AppSider,
-  AppStack,
   CompassOutlined,
   MenuOutlined,
   MoonOutlined,
@@ -31,7 +31,7 @@ import {
 import { useClient } from './app-context';
 import { useConnection } from './connection';
 import { AccountButton } from './account-button';
-import { Logo, LogoMark } from './logo';
+import { Logo } from './logo';
 import { NAV_ITEMS, PAGE_TITLES, type NavItem } from './nav-items';
 
 // Opened on demand, so they stay out of the first-paint bundle.
@@ -41,6 +41,24 @@ const loadTour = () => import('./tour');
 const loadMobileMenu = () => import('./mobile-menu');
 // The account menu (Dropdown) loads right after the first paint; a plain button holds its place.
 const loadAccountMenu = () => import('./account-menu');
+
+/** Card at the foot of the sider: which survey the screens are reading. Shares the cache of the survey list. */
+function ActiveSurveyCard({ surveyId, connectLabel, onConnect }: { surveyId: string; connectLabel: string; onConnect: () => void }) {
+  const client = useClient();
+  const surveys = useQuery({ queryKey: ['surveys'], queryFn: ({ signal }) => client.listSurveys({ signal }) });
+  const current = surveys.data?.find((survey) => survey.id === surveyId);
+  if (!current) return null;
+  return (
+    <div className="ih-active-survey">
+      <span className="ih-active-survey-label">Pesquisa ativa</span>
+      <span className="ih-active-survey-title">{current.title}</span>
+      <span className="ih-active-survey-label">{client.kind === 'demo' ? 'Dados fictícios, gerados no navegador' : 'Dados da API conectada'}</span>
+      <AppButton variant="link" size="sm" icon={<ApiOutlined />} className="ih-active-survey-action" onClick={onConnect}>
+        {connectLabel}
+      </AppButton>
+    </div>
+  );
+}
 
 const FAULT_OPTIONS: { value: FaultMode; label: string }[] = [
   { value: 'none', label: 'Tudo normal' },
@@ -55,7 +73,7 @@ function FaultSimulator({ controller }: { controller: FaultController }) {
   const mode = useFaultMode(controller);
   return (
     <span className="ih-row ih-gap-2 ih-nowrap">
-      <span id="simular-label">Simular</span>
+      <span id="simular-label">Simular falhas</span>
       <AppSelect<FaultMode> size="sm" aria-labelledby="simular-label" value={mode} options={FAULT_OPTIONS} onChange={(value) => controller.setMode(value)} popupMatchSelectWidth={false} />
     </span>
   );
@@ -176,69 +194,77 @@ export function AppShell() {
       {desktop ? (
         <AppSider collapsed={collapsed} onCollapse={setCollapsed}>
           <div className="ih-sider-inner">
-            <Link to="/" aria-label="InsightHub, início" style={{ padding: 'var(--ih-space-2)' }}>
+            <Link to="/" aria-label="InsightHub, início" className="ih-sider-logo">
               <Logo collapsed={collapsed} />
             </Link>
+            <AppButton
+              variant="ghost"
+              block
+              className="ih-sider-search"
+              icon={<SearchOutlined />}
+              aria-label={collapsed ? 'Buscar' : undefined}
+              aria-keyshortcuts="Control+K"
+              onClick={() => setPaletteOpen(true)}
+            >
+              {collapsed ? null : (
+                <span className="ih-sider-search-text">
+                  Buscar
+                  <AppKbd>Ctrl K</AppKbd>
+                </span>
+              )}
+            </AppButton>
             <nav aria-label="Principal">
-              <AppSideNav aria-label="Seções" items={menuItems(true)} selectedKey={section} collapsed={collapsed} />
+              <AppSideNav aria-label="Seções" items={menuItems(false)} selectedKey={section} collapsed={collapsed} />
             </nav>
             <div className="ih-sider-spacer" />
-            <AppStack gap={1}>
-              <AppButton variant="ghost" block icon={<ApiOutlined />} onClick={connection.openDialog} aria-label={collapsed ? connectLabel : undefined}>
-                {collapsed ? null : connectLabel}
-              </AppButton>
-              <AppButton variant="ghost" block icon={<MenuOutlined />} onClick={() => setCollapsed((value) => !value)} aria-label={collapsed ? 'Expandir o menu' : undefined}>
-                {collapsed ? null : 'Recolher menu'}
-              </AppButton>
-            </AppStack>
+            {collapsed ? null : <ActiveSurveyCard surveyId={surveyId} connectLabel={connectLabel} onConnect={connection.openDialog} />}
+            <div className={`ih-sider-tools${collapsed ? ' is-collapsed' : ''}`}>
+              <AppIconButton
+                label={mode === 'dark' ? 'Usar tema claro' : 'Usar tema escuro'}
+                aria-pressed={mode === 'dark'}
+                icon={mode === 'dark' ? <MoonOutlined /> : <SunOutlined />}
+                onClick={() => applyNextTheme()}
+              />
+              {accountMenu ? <accountMenu.default items={accountItems} /> : <AccountButton />}
+              <AppIconButton
+                label={collapsed ? 'Expandir o menu' : 'Recolher o menu'}
+                aria-expanded={!collapsed}
+                icon={<MenuOutlined />}
+                onClick={() => setCollapsed((value) => !value)}
+              />
+            </div>
           </div>
         </AppSider>
       ) : null}
 
       <AppLayoutBody>
-        {client.kind === 'demo' ? (
-          <div role="region" aria-label="Aviso de demonstração" className="ih-banner">
-            <span>
-              <strong>Demo com dados fictícios</strong>
-              <span className="ih-hide-phone"> · produto inventado “Atlas Analytics”, tudo roda no seu navegador</span>
-            </span>
-            {faults ? (
-              <span className="ih-hide-phone">
-                <FaultSimulator controller={faults} />
-              </span>
-            ) : null}
-          </div>
-        ) : null}
-
-        <AppLayoutHeader>
-          {desktop ? null : (
-            <>
-              <AppIconButton label="Abrir o menu" icon={<MenuOutlined />} onClick={() => setMenuOpen(true)} />
-              <Link to="/" aria-label="InsightHub, início" className="ih-logo">
-                <LogoMark size={30} />
-              </Link>
-            </>
-          )}
-          <AppButton variant="ghost" className="ih-header-search" icon={<SearchOutlined />} onClick={() => setPaletteOpen(true)}>
-            <span className="ih-phone-sr-only">Buscar</span>
-            <span className="ih-hide-phone ih-menu-key">
-              <AppKbd>Ctrl K</AppKbd>
-            </span>
-          </AppButton>
-          <div className="ih-fill" />
-          <AppIconButton
-            label={mode === 'dark' ? 'Usar tema claro' : 'Usar tema escuro'}
-            aria-pressed={mode === 'dark'}
-            icon={mode === 'dark' ? <MoonOutlined /> : <SunOutlined />}
-            onClick={() => applyNextTheme()}
-          />
-          {accountMenu ? <accountMenu.default items={accountItems} /> : <AccountButton />}
-        </AppLayoutHeader>
+        {desktop ? null : (
+          <AppLayoutHeader>
+            <AppIconButton label="Abrir o menu" icon={<MenuOutlined />} onClick={() => setMenuOpen(true)} />
+            <Link to="/" aria-label="InsightHub, início" className="ih-logo">
+              <Logo />
+            </Link>
+            <div className="ih-fill" />
+            <AppIconButton label="Buscar" aria-keyshortcuts="Control+K" icon={<SearchOutlined />} onClick={() => setPaletteOpen(true)} />
+            <AppIconButton
+              label={mode === 'dark' ? 'Usar tema claro' : 'Usar tema escuro'}
+              aria-pressed={mode === 'dark'}
+              icon={mode === 'dark' ? <MoonOutlined /> : <SunOutlined />}
+              onClick={() => applyNextTheme()}
+            />
+            {accountMenu ? <accountMenu.default items={accountItems} /> : <AccountButton />}
+          </AppLayoutHeader>
+        )}
 
         <AppLayoutContent id="conteudo" contentRef={mainRef}>
           <Outlet />
           <footer className="ih-footer-note">
-            Projeto pessoal de portfólio. Todos os dados desta demo são fictícios e gerados de forma determinística.
+            <span>
+              {client.kind === 'demo'
+                ? 'Dados fictícios. Atlas Analytics é um produto inventado para esta demonstração, e tudo roda no seu navegador.'
+                : 'Projeto pessoal de portfólio, conectado à sua API.'}
+            </span>
+            {faults ? <FaultSimulator controller={faults} /> : null}
           </footer>
         </AppLayoutContent>
       </AppLayoutBody>

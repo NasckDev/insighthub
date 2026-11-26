@@ -114,7 +114,7 @@ function DrillDown({ stat }: { stat: ThemeStat }) {
 }
 
 function CountTile({ value, label, tone }: { value: number; label: string; tone: 'promoter' | 'passive' | 'detractor' }) {
-  const background = tone === 'promoter' ? 'var(--ih-primary-soft)' : tone === 'passive' ? 'var(--ih-amber-soft)' : 'var(--ih-accent-soft)';
+  const background = tone === 'promoter' ? 'var(--ih-primary-soft)' : tone === 'passive' ? 'var(--ih-neutral-soft)' : 'var(--ih-accent-soft)';
   return (
     <div role="listitem" className="ih-count-tile" style={{ background }}>
       <span className="ih-display ih-tabular" style={{ color: `var(--ih-${tone})`, fontSize: '1.4rem' }}>
@@ -160,7 +160,7 @@ export function ThemesPage() {
           key,
           label: `${SENTIMENT_STYLE[key].label} (${SENTIMENT_STYLE[key].range})`,
           color: key === 'positive' ? p.promoterBar : key === 'mixed' ? p.passiveBar : p.detractorBar,
-          pattern: key === 'positive' ? p.primarySoft : key === 'mixed' ? p.amberSoft : p.accentSoft,
+          pattern: key === 'positive' ? p.primarySoft : key === 'mixed' ? p.neutralSoft : p.accentSoft,
         }));
         return (
           <AppGrid columns={{ base: 1 }} twelve>

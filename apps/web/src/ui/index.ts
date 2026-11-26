@@ -16,7 +16,7 @@ export { AppForm, AppFormItem, useAppForm, type AppFormProps, type AppFormItemPr
 export { AppTable, AppList, type AppColumn, type AppTableProps, type AppListProps } from './app-table';
 export { AppCard, type AppCardProps } from './app-card';
 export { AppStatistic, CountUp, type AppStatisticProps, type StatisticTone } from './app-statistic';
-export { AppTag, AppStatus, type AppTagProps, type AppStatusProps, type StatusKind, type TagTone } from './app-tag';
+export { AppPill, AppTag, AppStatus, type AppPillProps, type AppTagProps, type AppStatusProps, type StatusKind, type TagTone } from './app-tag';
 export { AppModal, type AppModalProps, type ModalSize } from './app-modal';
 export { AppDrawer, type AppDrawerProps } from './app-drawer';
 export { AppTabs, type AppTabItem, type AppTabsProps } from './app-tabs';

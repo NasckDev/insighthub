@@ -3,31 +3,42 @@ import type { ThemeConfig } from 'antd';
 import { useSyncExternalStore } from 'react';
 
 /**
- * Central theme of InsightHub. Every color, radius, font and control size in the app comes from here:
- * `buildTheme` turns it into Ant Design tokens, and `paletteCss` turns the same palette into CSS custom
- * properties (`--ih-*`) for the few rules that live in plain CSS and for the ECharts options.
+ * Central theme of InsightHub ("editorial de pesquisa"). Every color, radius, font and control size in
+ * the app comes from here: `buildTheme` turns it into Ant Design tokens, and `paletteCss` turns the same
+ * palette into CSS custom properties (`--ih-*`) for the rules that live in plain CSS and for ECharts.
  */
 export type ThemeMode = 'light' | 'dark';
 
 export interface Palette {
+  /** Page ground (`--ih-ground` in the design package). */
   bg: string;
   surface: string;
+  /** Wells inside a card: segmented track, table header, hovered rows. */
   surface2: string;
   line: string;
+  /** Field borders: 3:1 against the ground and the surface. */
   controlLine: string;
   fg: string;
   muted: string;
+  /** Indigo: main action, promoters, positive. */
   primary: string;
+  primaryHover: string;
   primaryFg: string;
   primarySoft: string;
+  /** Coral: detractors and negative, only in charts and marks, never as a text color. */
   accent: string;
+  /** Negative text (the coral darkened to AA). */
   accentText: string;
   accentSoft: string;
+  /** Mist: neutrals and quiet control borders. */
+  neutral: string;
+  neutralSoft: string;
+  /** Status dot only, never text. */
+  success: string;
+  /** Warnings (small sample, search marks), kept apart from the brand trio on purpose. */
   amber: string;
   amberText: string;
   amberSoft: string;
-  plum: string;
-  plumSoft: string;
   focus: string;
   promoter: string;
   passive: string;
@@ -40,96 +51,113 @@ export interface Palette {
   warnBg: string;
   warnFg: string;
   warnLine: string;
-  bannerBg: string;
-  bannerFg: string;
+  /** Dark "Síntese assistida" panel and active filter pills. */
+  panelBg: string;
+  panelFg: string;
+  panelMuted: string;
+  panelLine: string;
+  panelLink: string;
   glass: string;
 }
 
+/** Values from `tokens.css` of the identity; the extra shades were added and checked for AA in both modes. */
 export const PALETTES: Record<ThemeMode, Palette> = {
   light: {
-    bg: '#fbf8f3',
+    bg: '#f6f7fb',
     surface: '#ffffff',
-    surface2: '#f4efe6',
-    line: '#e6dfd2',
-    controlLine: '#857f72',
-    fg: '#1b1b3a',
-    muted: '#5a5a72',
-    primary: '#0f766e',
+    surface2: '#f0f1f6',
+    line: '#e3e5ee',
+    controlLine: '#80869e',
+    fg: '#121528',
+    muted: '#5b6075',
+    primary: '#3d3df5',
+    primaryHover: '#2626c9',
     primaryFg: '#ffffff',
-    primarySoft: '#dcefeb',
-    accent: '#e8604c',
-    accentText: '#b23a27',
-    accentSoft: '#fbe6e1',
-    amber: '#b57c0c',
-    amberText: '#7d5200',
-    amberSoft: '#fbf0d6',
-    plum: '#7a4e8c',
-    plumSoft: '#efe5f3',
-    focus: '#0f766e',
-    promoter: '#0b6b63',
-    passive: '#7d5200',
-    detractor: '#b23a27',
-    promoterBar: '#0f766e',
-    passiveBar: '#b57c0c',
-    detractorBar: '#e8604c',
-    dangerBg: '#fbe6e1',
-    dangerFg: '#8f2a1a',
-    warnBg: '#fbf0d6',
-    warnFg: '#6a4400',
-    warnLine: '#d9b45c',
-    bannerBg: '#1b1b3a',
-    bannerFg: '#f1ecff',
-    glass: 'rgb(251 248 243 / 0.86)',
+    primarySoft: '#ededfe',
+    accent: '#f2643d',
+    accentText: '#b8401e',
+    accentSoft: '#fdebe5',
+    neutral: '#d7d9e4',
+    neutralSoft: '#eceef4',
+    success: '#1f9d63',
+    amber: '#a86a00',
+    amberText: '#6b4400',
+    amberSoft: '#fff3dc',
+    focus: '#3d3df5',
+    promoter: '#2626c9',
+    passive: '#454a61',
+    detractor: '#b8401e',
+    promoterBar: '#3d3df5',
+    passiveBar: '#d7d9e4',
+    detractorBar: '#f2643d',
+    dangerBg: '#fdebe5',
+    dangerFg: '#8f2e12',
+    warnBg: '#fff3dc',
+    warnFg: '#6b4400',
+    warnLine: '#e2b65a',
+    panelBg: '#121528',
+    panelFg: '#f3f4fa',
+    panelMuted: '#b9bcd3',
+    panelLine: '#343857',
+    panelLink: '#9c9cff',
+    glass: 'rgb(255 255 255 / 0.92)',
   },
   dark: {
-    bg: '#0e1514',
-    surface: '#131c1b',
-    surface2: '#1a2625',
-    line: '#2a3836',
-    controlLine: '#6f8481',
-    fg: '#eeeae2',
-    muted: '#a2b2af',
-    primary: '#3cc4b6',
-    primaryFg: '#06231f',
-    primarySoft: '#12302d',
-    accent: '#ff7c68',
-    accentText: '#ff9c8b',
-    accentSoft: '#3a1f1b',
-    amber: '#f0b645',
-    amberText: '#f0b645',
-    amberSoft: '#352a0e',
-    plum: '#c79bdb',
-    plumSoft: '#2c1f35',
-    focus: '#7ee8da',
-    promoter: '#52d6c7',
-    passive: '#f0b645',
-    detractor: '#ff9c8b',
-    promoterBar: '#2fb3a5',
-    passiveBar: '#e3a92f',
-    detractorBar: '#f26f5b',
-    dangerBg: '#3a1f1b',
-    dangerFg: '#ffb4a6',
-    warnBg: '#352a0e',
+    bg: '#0f1220',
+    surface: '#171b2e',
+    surface2: '#1f2439',
+    line: '#2a2f4a',
+    controlLine: '#6e7493',
+    fg: '#f3f4fa',
+    muted: '#b9bcd3',
+    primary: '#9c9cff',
+    primaryHover: '#c3c3ff',
+    primaryFg: '#121528',
+    primarySoft: '#23264a',
+    accent: '#f2643d',
+    accentText: '#ff9b7d',
+    accentSoft: '#3b2222',
+    neutral: '#3a3f5c',
+    neutralSoft: '#262b43',
+    success: '#3ccf8e',
+    amber: '#e0a63a',
+    amberText: '#f0c46a',
+    amberSoft: '#33280f',
+    focus: '#9c9cff',
+    promoter: '#b4b4ff',
+    passive: '#d2d4e3',
+    detractor: '#ff9b7d',
+    promoterBar: '#9c9cff',
+    passiveBar: '#4a5070',
+    detractorBar: '#f2643d',
+    dangerBg: '#3b2222',
+    dangerFg: '#ffb6a1',
+    warnBg: '#33280f',
     warnFg: '#f3d68a',
     warnLine: '#8a6b1c',
-    bannerBg: '#0a100f',
-    bannerFg: '#cfe7e3',
-    glass: 'rgb(14 21 20 / 0.86)',
+    panelBg: '#23264a',
+    panelFg: '#f3f4fa',
+    panelMuted: '#c8cae0',
+    panelLine: '#3b4070',
+    panelLink: '#c3c3ff',
+    glass: 'rgb(23 27 46 / 0.92)',
   },
 };
 
-export const FONT_SANS = "'Inter Variable', ui-sans-serif, system-ui, 'Segoe UI', Roboto, Arial, sans-serif";
-export const FONT_DISPLAY = "'Fraunces Variable', 'Iowan Old Style', Georgia, serif";
+export const FONT_SANS = "'Instrument Sans Variable', 'Instrument Sans', Arial, sans-serif";
+/** Only for what respondents said (24 to 30 px). Never in titles, buttons or labels. */
+export const FONT_QUOTE = "'Instrument Serif', Georgia, serif";
 export const FONT_MONO = "ui-monospace, 'Cascadia Mono', 'SF Mono', Consolas, monospace";
 
-/** Radii of the editorial identity (medium corners, thin lines). */
-export const RADIUS = { sm: 8, md: 12, lg: 14 } as const;
+/** Radii of the identity: 12 px on controls, 20 px on cards. */
+export const RADIUS = { sm: 8, md: 12, lg: 20 } as const;
 /** Control heights: touch devices and phones get 44 px targets (WCAG 2.2 and platform guidelines). */
 export const CONTROL_HEIGHT = { desktop: 40, desktopSmall: 32, touch: 44, large: 48 } as const;
 
 export const COMPACT_QUERY = '(pointer: coarse), (max-width: 767px)';
 
-const kebab = (key: string) => key.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
+/** `surface2` becomes `surface-2`, the name every rule uses (digits were glued to the word before). */
+const kebab = (key: string) => key.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`).replace(/(\d+)/g, '-$1');
 
 function declarations(palette: Palette): string {
   return Object.entries(palette)
@@ -140,7 +168,7 @@ function declarations(palette: Palette): string {
 /** CSS text with the palette of both modes as `--ih-*` custom properties. */
 export function paletteCss(): string {
   return (
-    `:root{color-scheme:light;${declarations(PALETTES.light)}--ih-font-sans:${FONT_SANS};--ih-font-display:${FONT_DISPLAY};--ih-font-mono:${FONT_MONO};` +
+    `:root{color-scheme:light;${declarations(PALETTES.light)}--ih-font-sans:${FONT_SANS};--ih-font-quote:${FONT_QUOTE};--ih-font-mono:${FONT_MONO};` +
     `--ih-radius-sm:${RADIUS.sm}px;--ih-radius-md:${RADIUS.md}px;--ih-radius-lg:${RADIUS.lg}px;}` +
     `:root[data-theme='dark']{color-scheme:dark;${declarations(PALETTES.dark)}}`
   );
@@ -170,11 +198,15 @@ export function buildTheme(mode: ThemeMode, { compact = false }: ThemeOptions = 
     algorithm: mode === 'dark' ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
     token: {
       colorPrimary: p.primary,
-      colorSuccess: p.promoter,
+      // The derived hover is a lighter indigo that drops white text below AA; the identity darkens instead.
+      colorPrimaryHover: p.primaryHover,
+      colorPrimaryActive: p.primaryHover,
+      colorSuccess: p.success,
       colorWarning: p.amber,
       colorError: p.detractor,
       colorInfo: p.primary,
-      colorLink: p.primary,
+      colorLink: p.primaryHover,
+      colorLinkHover: p.primary,
       colorBgLayout: p.bg,
       colorBgContainer: p.surface,
       colorBgElevated: p.surface,
@@ -191,7 +223,7 @@ export function buildTheme(mode: ThemeMode, { compact = false }: ThemeOptions = 
       colorFillTertiary: p.surface2,
       colorFillQuaternary: p.surface2,
       colorBgContainerDisabled: p.surface2,
-      colorBgMask: mode === 'dark' ? 'rgb(0 0 0 / 0.62)' : 'rgb(6 12 11 / 0.55)',
+      colorBgMask: mode === 'dark' ? 'rgb(0 0 0 / 0.62)' : 'rgb(18 21 40 / 0.5)',
       controlOutline: 'transparent',
       colorPrimaryBg: p.primarySoft,
       fontFamily: FONT_SANS,
@@ -207,7 +239,7 @@ export function buildTheme(mode: ThemeMode, { compact = false }: ThemeOptions = 
       lineWidth: 1,
       boxShadow: 'none',
       boxShadowSecondary:
-        mode === 'dark' ? '0 18px 40px -12px rgb(0 0 0 / 0.7)' : '0 18px 40px -12px rgb(27 27 58 / 0.28)',
+        mode === 'dark' ? '0 18px 40px -12px rgb(0 0 0 / 0.7)' : '0 18px 40px -12px rgb(18 21 40 / 0.22)',
     },
     components: {
       Layout: {
@@ -216,7 +248,7 @@ export function buildTheme(mode: ThemeMode, { compact = false }: ThemeOptions = 
         siderBg: p.surface,
         triggerBg: p.surface2,
         triggerColor: p.fg,
-        headerPadding: '0 24px',
+        headerPadding: '0 16px',
         headerHeight: 64,
       },
       Menu: {
@@ -225,7 +257,7 @@ export function buildTheme(mode: ThemeMode, { compact = false }: ThemeOptions = 
         itemHoverBg: p.surface2,
         itemHoverColor: p.fg,
         itemSelectedBg: p.primarySoft,
-        itemSelectedColor: p.fg,
+        itemSelectedColor: p.primaryHover,
         itemHeight: 44,
         itemBorderRadius: RADIUS.md,
         activeBarBorderWidth: 0,
@@ -241,18 +273,34 @@ export function buildTheme(mode: ThemeMode, { compact = false }: ThemeOptions = 
         headerBorderRadius: RADIUS.md,
       },
       Card: { headerFontSize: 18, boxShadowTertiary: 'none' },
-      Statistic: { titleFontSize: 14, contentFontSize: 38 },
+      Statistic: { titleFontSize: 13, contentFontSize: 30 },
       Button: {
         primaryShadow: 'none',
         defaultShadow: 'none',
         dangerShadow: 'none',
         fontWeight: 600,
         primaryColor: p.primaryFg,
+        // The dark algorithm dims the seed indigo; buttons keep the exact token of the identity.
+        colorPrimary: p.primary,
+        colorPrimaryHover: p.primaryHover,
+        colorPrimaryActive: p.primaryHover,
+        defaultBorderColor: p.neutral,
+        defaultColor: p.fg,
+        defaultBg: p.surface,
+        borderRadiusLG: RADIUS.md,
       },
-      Tabs: { itemColor: p.muted, itemSelectedColor: p.fg, itemHoverColor: p.fg, inkBarColor: p.accent },
-      Segmented: { itemSelectedBg: p.primary, itemSelectedColor: p.primaryFg, trackBg: p.surface2, itemColor: p.fg },
+      Tabs: { itemColor: p.muted, itemSelectedColor: p.fg, itemHoverColor: p.fg, inkBarColor: p.primary },
+      Segmented: {
+        itemSelectedBg: p.surface,
+        itemSelectedColor: p.fg,
+        trackBg: p.surface2,
+        itemColor: p.muted,
+        itemHoverColor: p.fg,
+        trackPadding: 4,
+      },
       Tag: { defaultBg: p.surface2, defaultColor: p.fg },
       Result: { titleFontSize: 22 },
+      Modal: { titleFontSize: 20 },
     },
   };
 }
