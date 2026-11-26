@@ -48,7 +48,7 @@ describe('dialogs render in a portal', () => {
   it('puts the filters panel in a portal under <body>, outside the blurred filter bar', async () => {
     const user = userEvent.setup();
     renderApp(`${SURVEY}/visao-geral`);
-    await user.click(await screen.findByRole('button', { name: /^Filtros/ }));
+    await user.click(await screen.findByRole('button', { name: /^Adicionar filtro/ }));
     const dialog = await screen.findByRole('dialog', { name: 'Filtros' });
     expect(dialog.closest('.ih-filterbar')).toBeNull();
     expect(document.body.contains(dialog)).toBe(true);
@@ -58,7 +58,7 @@ describe('dialogs render in a portal', () => {
   it('closes the filters panel on Escape', async () => {
     const user = userEvent.setup();
     renderApp(`${SURVEY}/visao-geral`);
-    await user.click(await screen.findByRole('button', { name: /^Filtros/ }));
+    await user.click(await screen.findByRole('button', { name: /^Adicionar filtro/ }));
     await screen.findByRole('dialog', { name: 'Filtros' });
     await user.keyboard('{Escape}');
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Filtros' })).not.toBeInTheDocument());
@@ -127,7 +127,7 @@ describe('period in the URL', () => {
     const user = userEvent.setup();
     renderApp(`${SURVEY}/respostas?from=2026-09-01&to=2026-08-01`);
     await screen.findByRole('table', { name: TABLE_NAME });
-    await user.click(screen.getByRole('button', { name: /^Filtros/ }));
+    await user.click(screen.getByRole('button', { name: /^Adicionar filtro/ }));
     const dialog = await screen.findByRole('dialog', { name: 'Filtros' });
     expect(within(dialog).getByRole('alert')).toHaveTextContent('data inicial é depois da final');
   });

@@ -40,7 +40,7 @@ export function distributionOption(bins: readonly DistributionBin[], p: Palette)
         const index = Array.isArray(params) ? (params[0]?.dataIndex ?? 0) : params.dataIndex;
         const bin = bins[index];
         if (!bin) return '';
-        return `<div style="font-size:12px;color:${p.muted}">Nota ${bin.score}</div><div style="font-family:'Fraunces Variable',serif;font-size:22px;font-weight:600">${formatNumber(bin.count)}</div><div style="font-size:12px;color:${p.muted}">${formatPercent(bin.count, total)} das respostas · ${NPS_SINGULAR[bin.category]}</div>`;
+        return `<div style="font-size:12px;color:${p.muted}">Nota ${bin.score}</div><div style="font-size:20px;font-weight:700;font-variant-numeric:tabular-nums">${formatNumber(bin.count)}</div><div style="font-size:12px;color:${p.muted}">${formatPercent(bin.count, total)} das respostas · ${NPS_SINGULAR[bin.category]}</div>`;
       },
     },
     xAxis: {

@@ -48,7 +48,7 @@ describe('filters in the URL', () => {
     const user = userEvent.setup();
     const { router } = renderApp(`${SURVEY}/respostas?plan=pro&page=2`);
     await screen.findByRole('table', { name: TABLE_NAME });
-    await user.click(screen.getByRole('button', { name: /^Filtros/ }));
+    await user.click(screen.getByRole('button', { name: /^Adicionar filtro/ }));
     const panel = await screen.findByRole('dialog', { name: 'Filtros' });
     await user.click(within(panel).getByRole('checkbox', { name: /^Enterprise/ }));
     await waitFor(() => expect(searchOf(router)).toEqual({ plan: ['pro', 'enterprise'] }));

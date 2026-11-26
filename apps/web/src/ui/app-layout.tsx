@@ -14,7 +14,7 @@ export interface AppSiderProps {
   'aria-label'?: string;
 }
 
-const EXPANDED_WIDTH = 264;
+const EXPANDED_WIDTH = 232;
 const COLLAPSED_WIDTH = 76;
 
 /** Collapsible side navigation (desktop). Below 1200 px the screen renders a drawer instead. */

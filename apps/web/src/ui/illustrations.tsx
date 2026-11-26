@@ -5,7 +5,7 @@ const PRIMARY = 'var(--ih-primary)';
 const ACCENT = 'var(--ih-accent)';
 const SOFT = 'var(--ih-primary-soft)';
 const PAPER = 'var(--ih-surface-2)';
-const AMBER = 'var(--ih-amber)';
+const AMBER = 'var(--ih-neutral)';
 const SURFACE = 'var(--ih-surface)';
 
 function Frame({ children }: { children: React.ReactNode }) {
@@ -63,7 +63,7 @@ const SCENES: Record<IllustrationName, React.ReactNode> = {
       <rect x="30" y="28" width="76" height="52" rx="8" fill={PRIMARY} />
       <rect x="110" y="28" width="60" height="30" rx="8" fill={AMBER} />
       <rect x="110" y="62" width="28" height="18" rx="8" fill={ACCENT} />
-      <rect x="142" y="62" width="28" height="18" rx="8" fill="var(--ih-plum)" />
+      <rect x="142" y="62" width="28" height="18" rx="8" fill="var(--ih-primary-soft)" />
       <rect x="30" y="84" width="140" height="22" rx="8" fill={SOFT} stroke={INK} strokeWidth="2" />
     </>
   ),

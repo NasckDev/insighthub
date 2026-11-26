@@ -148,23 +148,33 @@ export interface AppBandPart {
   color: string;
 }
 
-export function AppBand({ parts, label }: { parts: readonly AppBandPart[]; label: string }) {
-  const total = parts.reduce((sum, part) => sum + part.value, 0) || 1;
+export interface AppBandProps {
+  parts: readonly AppBandPart[];
+  label: string;
+  /** Hide the swatch legend when the numbers are already written next to the band. */
+  legend?: boolean;
+}
+
+/** Segments keep 3 px apart, so mist and coral read as separate parts even side by side. */
+export function AppBand({ parts, label, legend = true }: AppBandProps) {
+  const visible = parts.filter((part) => part.value > 0);
   return (
     <div className="ih-stack ih-gap-2" style={{ width: '100%' }}>
       <div className="ih-band" role="img" aria-label={label}>
-        {parts.map((part) => (
-          <span key={part.key} style={{ width: `${(part.value / total) * 100}%`, background: part.color }} />
+        {visible.map((part) => (
+          <span key={part.key} style={{ flexGrow: part.value, background: part.color }} />
         ))}
       </div>
-      <ul className="ih-legend" style={{ justifyContent: 'space-between' }}>
-        {parts.map((part) => (
-          <li key={part.key}>
-            <i aria-hidden="true" style={{ background: part.color }} />
-            {part.label}
-          </li>
-        ))}
-      </ul>
+      {legend ? (
+        <ul className="ih-legend" style={{ justifyContent: 'space-between' }}>
+          {parts.map((part) => (
+            <li key={part.key}>
+              <i aria-hidden="true" style={{ background: part.color }} />
+              {part.label}
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </div>
   );
 }

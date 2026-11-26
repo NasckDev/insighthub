@@ -1,14 +1,16 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
 import { useClient } from '../components/app-context';
+import { CopyViewLink } from '../components/copy-view-link';
 import { FacetPanel } from '../components/facet-panel';
 import { FilterBar } from '../components/filter-bar';
+import { NavButton } from '../components/nav-button';
 import { PAGE_TITLES, type NavItem } from '../components/nav-items';
 import { ResponseDialog } from '../components/response-dialog';
 import { ErrorState, LoadingBlock } from '../components/states';
-import { formatNps, formatNumber } from '../lib/format';
+import { formatNumber } from '../lib/format';
 import { usePatchSearch, useSurveyId, useSurveySearch } from '../lib/use-survey-search';
-import { AppCard, AppPageHeader, AppSelect, AppStack, AppTag } from '../ui';
+import { AppCard, AppPageHeader, AppPill, AppSelect, AppStack, ThunderboltOutlined } from '../ui';
 
 export function SurveyLayout() {
   const client = useClient();
@@ -41,6 +43,7 @@ export function SurveyLayout() {
   const showFilters = section !== 'quadro';
   const showFacets = section === 'respostas';
   const pageTitle = PAGE_TITLES[section] ?? current.title;
+  const status = current.status === 'active' ? 'Ativa' : 'Encerrada';
 
   const body = showFacets ? (
     <div className="ih-with-facets">
@@ -58,45 +61,46 @@ export function SurveyLayout() {
   );
 
   return (
-    <AppStack gap={4}>
+    <AppStack gap={5}>
       <AppPageHeader
         title={pageTitle}
         breadcrumb={[
           { title: <Link to="/">InsightHub</Link> },
-          { title: pageTitle },
+          {
+            title: (
+              <AppSelect
+                id="survey-select"
+                aria-label="Pesquisa"
+                variant="borderless"
+                className="ih-survey-picker"
+                value={surveyId}
+                popupMatchSelectWidth={false}
+                options={surveys.data.map((survey) => ({ value: survey.id, label: survey.title }))}
+                onChange={(value) =>
+                  void navigate({ to: '.', params: (previous: object) => ({ ...previous, surveyId: value }), search: {} as never })
+                }
+              />
+            ),
+          },
         ]}
-        eyebrow={
-          <>
-            <AppTag tone={current.status === 'active' ? 'primary' : 'neutral'}>{current.status === 'active' ? 'Ativa' : 'Encerrada'}</AppTag>
-            <span>
-              {formatNumber(current.responseCount)} respostas
-              {current.nps !== null ? ` · NPS geral ${formatNps(current.nps)}` : ''}
-            </span>
-          </>
+        badge={
+          <AppPill dot={current.status === 'active' ? 'success' : 'muted'}>
+            {status}, {formatNumber(current.responseCount)} respostas
+          </AppPill>
         }
         extra={
-          <div className="ih-survey-picker">
-            <label htmlFor="survey-select" className="ih-label">
-              Pesquisa
-            </label>
-            <AppSelect
-              id="survey-select"
-              value={surveyId}
-              style={{ width: '100%' }}
-              options={surveys.data.map((survey) => ({ value: survey.id, label: survey.title }))}
-              onChange={(value) =>
-                void navigate({ to: '.', params: (previous: object) => ({ ...previous, surveyId: value }), search: {} as never })
-              }
-            />
-          </div>
+          <>
+            {showFilters ? <CopyViewLink /> : null}
+            {section === 'visao-geral' ? (
+              <NavButton variant="primary" icon={<ThunderboltOutlined />} to="/s/$surveyId/sintese" params={{ surveyId }} search={(previous: object) => previous}>
+                Abrir síntese
+              </NavButton>
+            ) : null}
+          </>
         }
       />
 
-      {showFilters ? (
-        <div className="ih-filterbar">
-          <FilterBar facetsVisible={showFacets} />
-        </div>
-      ) : null}
+      {showFilters ? <FilterBar facetsVisible={showFacets} /> : null}
 
       {body}
       {search.r ? <ResponseDialog surveyId={surveyId} responseId={search.r} onClose={() => patch({ r: undefined })} /> : null}

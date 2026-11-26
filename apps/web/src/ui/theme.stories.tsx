@@ -9,7 +9,9 @@ const PAIRS: [keyof Palette, keyof Palette][] = [
   ['muted', 'surface'],
   ['primary', 'surface'],
   ['promoter', 'primarySoft'],
-  ['passive', 'amberSoft'],
+  ['passive', 'neutralSoft'],
+  ['primaryHover', 'primarySoft'],
+  ['panelFg', 'panelBg'],
   ['detractor', 'accentSoft'],
   ['controlLine', 'surface'],
 ];

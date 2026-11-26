@@ -15,7 +15,7 @@ export function tooltipBox(p: Palette) {
     borderWidth: 1,
     padding: [10, 12],
     textStyle: { color: p.fg, fontFamily: FONT_SANS, fontSize: 13 },
-    extraCssText: 'border-radius:12px;box-shadow:0 18px 40px -12px rgb(27 27 58 / 0.28);',
+    extraCssText: 'border-radius:12px;box-shadow:0 12px 32px -16px rgb(18 21 40 / 0.28);',
     confine: true,
   } as const;
 }

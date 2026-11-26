@@ -1,12 +1,12 @@
-import { BarChart, GaugeChart, LineChart, TreemapChart } from 'echarts/charts';
+import { BarChart, LineChart, TreemapChart } from 'echarts/charts';
 import { AriaComponent, GridComponent, MarkLineComponent, TooltipComponent } from 'echarts/components';
 import * as echarts from 'echarts/core';
 import { SVGRenderer } from 'echarts/renderers';
 import ReactEChartsCore from 'echarts-for-react/lib/core';
 import type { AppChartOption } from './app-chart';
 
-// Only the pieces the five charts use are registered: the full ECharts package is several times larger.
-echarts.use([BarChart, GaugeChart, LineChart, TreemapChart, AriaComponent, GridComponent, MarkLineComponent, TooltipComponent, SVGRenderer]);
+// Only the pieces the four charts use are registered: the full ECharts package is several times larger.
+echarts.use([BarChart, LineChart, TreemapChart, AriaComponent, GridComponent, MarkLineComponent, TooltipComponent, SVGRenderer]);
 
 interface ChartCanvasProps {
   option: AppChartOption;

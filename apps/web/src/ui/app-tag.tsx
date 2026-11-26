@@ -45,3 +45,19 @@ export function AppStatus({ status, label, value }: AppStatusProps) {
     </AppTag>
   );
 }
+
+export interface AppPillProps {
+  children: ReactNode;
+  /** Status dot before the text. The text always carries the meaning; the dot is decoration. */
+  dot?: 'success' | 'muted';
+}
+
+/** White pill with a thin line, used for the survey status next to the page title. */
+export function AppPill({ children, dot }: AppPillProps) {
+  return (
+    <span className="ih-pill">
+      {dot ? <span aria-hidden="true" className={`ih-pill-dot ih-pill-dot--${dot}`} /> : null}
+      {children}
+    </span>
+  );
+}

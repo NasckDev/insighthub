@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
-import { ApartmentOutlined, BulbOutlined, DashboardOutlined, MessageOutlined, PushpinOutlined, SwapOutlined } from '../ui';
+import { ApartmentOutlined, AppstoreOutlined, BulbOutlined, MessageOutlined, PushpinOutlined, SwapOutlined } from '../ui';
 
 export const NAV_ITEMS = [
-  { to: '/s/$surveyId/visao-geral', slug: 'visao-geral', label: 'Painel', icon: <DashboardOutlined />, go: 'P' },
+  { to: '/s/$surveyId/visao-geral', slug: 'visao-geral', label: 'Painel', icon: <AppstoreOutlined />, go: 'P' },
   { to: '/s/$surveyId/respostas', slug: 'respostas', label: 'Respostas', icon: <MessageOutlined />, go: 'R' },
   { to: '/s/$surveyId/temas', slug: 'temas', label: 'Temas', icon: <ApartmentOutlined />, go: 'T' },
   { to: '/s/$surveyId/comparar', slug: 'comparar', label: 'Comparar', icon: <SwapOutlined />, go: 'C' },

@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { formatDate, formatDayMonth, formatDayMonthShort, formatNps, formatNumber } from '../../lib/format';
 import type { TimelinePoint } from '../../lib/overview';
 import { AppChart, FONT_SANS, type AppChartOption, type Palette } from '../../ui';
-import { tooltipBox, useChartPalette, withAlpha } from './chart-theme';
+import { tooltipBox, useChartPalette } from './chart-theme';
 
 const TICK_STEP = 20;
 const PADDING = 8;
@@ -35,7 +35,7 @@ export function timelineOption(points: readonly TimelinePoint[], p: Palette): Ap
         const point = points[index];
         if (!point) return '';
         const small = point.count < LOW_SAMPLE_THRESHOLD ? ' · amostra pequena' : '';
-        return `<div style="font-size:12px;color:${p.muted}">Semana de ${formatDate(point.weekStart)}</div><div style="font-family:'Fraunces Variable',serif;font-size:22px;font-weight:600">NPS ${formatNps(point.nps)}</div><div style="font-size:12px;color:${p.muted}">${formatNumber(point.count)} respostas${small}</div>`;
+        return `<div style="font-size:12px;color:${p.muted}">Semana de ${formatDate(point.weekStart)}</div><div style="font-size:20px;font-weight:700;font-variant-numeric:tabular-nums">NPS ${formatNps(point.nps)}</div><div style="font-size:12px;color:${p.muted}">${formatNumber(point.count)} respostas${small}</div>`;
       },
     },
     xAxis: {
@@ -44,37 +44,23 @@ export function timelineOption(points: readonly TimelinePoint[], p: Palette): Ap
       data: points.map((point) => formatDayMonthShort(point.weekStart)),
       axisLine: { lineStyle: { color: p.line } },
       axisTick: { show: false },
-      axisLabel: { color: p.muted, fontFamily: FONT_SANS, fontSize: 11, hideOverlap: true },
+      axisLabel: { color: p.muted, fontFamily: FONT_SANS, fontSize: 12, hideOverlap: true },
     },
     yAxis: {
       type: 'value',
       min: lo,
       max: hi,
       interval: TICK_STEP,
-      axisLabel: { color: p.muted, fontFamily: FONT_SANS, fontSize: 11, formatter: (value: number) => formatNps(value) },
-      splitLine: { lineStyle: { color: p.line, type: 'dashed' } },
+      axisLabel: { color: p.muted, fontFamily: FONT_SANS, fontSize: 12, formatter: (value: number) => formatNps(value) },
+      splitLine: { lineStyle: { color: p.line, type: 'solid' } },
     },
     series: [
       {
         type: 'line',
-        smooth: 0.35,
         symbol: 'circle',
-        symbolSize: 9,
-        lineStyle: { width: 3, color: p.primary },
+        symbolSize: 10,
+        lineStyle: { width: 3, color: p.primary, cap: 'round', join: 'round' },
         itemStyle: { color: p.primary },
-        areaStyle: {
-          color: {
-            type: 'linear',
-            x: 0,
-            y: 0,
-            x2: 0,
-            y2: 1,
-            colorStops: [
-              { offset: 0, color: withAlpha(p.primary, 0.32) },
-              { offset: 1, color: withAlpha(p.primary, 0) },
-            ],
-          },
-        },
         // Weeks with few answers are drawn hollow: the number moves a lot with so little data.
         data: points.map((point) => ({
           value: point.nps,

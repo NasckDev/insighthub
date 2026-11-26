@@ -1,72 +1,38 @@
-import { LOW_SAMPLE_THRESHOLD, sentimentLabel, type NpsBreakdown, type SentimentLabel, type ThemeStat } from '@insighthub/core';
+import { classifyNps, LOW_SAMPLE_THRESHOLD, sentimentLabel, type ThemeStat } from '@insighthub/core';
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
+import { useId } from 'react';
 import type { AnalysisData } from '../data';
 import { useClient } from '../components/app-context';
 import { ChartCard } from '../components/charts/chart-card';
 import { SENTIMENT_STYLE } from '../components/charts/chart-theme';
 import { DistributionChart, NpsLegend } from '../components/charts/distribution-chart';
 import { DistributionTable, TimelineTable } from '../components/charts/lazy-tables';
-import { NpsGauge } from '../components/charts/nps-gauge';
 import { TimelineChart } from '../components/charts/timeline-chart';
 import { clearFiltersPatch } from '../components/filter-bar';
 import { NavButton } from '../components/nav-button';
-import { Avatar, ThemeChips } from '../components/response-bits';
 import { EmptyState, ErrorState, KpiSkeleton, LoadingBlock, QueryView } from '../components/states';
+import { NpsCard } from '../components/nps-card';
+import { SynthesisPanel } from '../components/synthesis-panel';
 import { TourChip } from '../components/tour';
-import { formatNps, formatNumber, formatPercent } from '../lib/format';
-import { personOf } from '../lib/people';
+import { formatNps, formatNumber } from '../lib/format';
+import { NPS_SINGULAR, PLAN_LABELS } from '../lib/labels';
 import type { TimelinePoint } from '../lib/overview';
 import { filtersOf, hasActiveFilters } from '../lib/search';
 import { usePatchSearch, useSurveyId, useSurveySearch } from '../lib/use-survey-search';
 import {
   AppAlert,
-  AppBand,
   AppButton,
   AppCard,
-  AppGrid,
-  AppGridItem,
+  AppLegend,
   AppParagraph,
   AppReveal,
   AppStack,
-  AppStatistic,
-  AppTag,
-  AppText,
   AppTitle,
   ArrowRightOutlined,
-  FrownOutlined,
   PALETTES,
-  SmileOutlined,
   useThemeMode,
 } from '../ui';
-
-const BAR_VAR: Record<SentimentLabel, string> = { positive: 'var(--ih-promoter-bar)', mixed: 'var(--ih-passive-bar)', negative: 'var(--ih-detractor-bar)' };
-
-function NpsCard({ summary }: { summary: NpsBreakdown }) {
-  const p = PALETTES[useThemeMode()];
-  const share = (count: number) => formatPercent(count, summary.total);
-  return (
-    <AppCard role="region" aria-label="NPS" fullHeight>
-      <AppStack gap={4} align="center">
-        <div className="ih-row ih-between ih-gap-2" style={{ width: '100%' }}>
-          <AppTitle level={2}>Net Promoter Score</AppTitle>
-          <AppText tone="muted" small>
-            promotores − detratores
-          </AppText>
-        </div>
-        <NpsGauge value={summary.nps} total={summary.total} />
-        <AppBand
-          label={`Detratores ${share(summary.detractors)}, neutros ${share(summary.passives)}, promotores ${share(summary.promoters)}`}
-          parts={[
-            { key: 'detractors', label: `Detratores ${share(summary.detractors)}`, value: summary.detractors, color: p.detractorBar },
-            { key: 'passives', label: `Neutros ${share(summary.passives)}`, value: summary.passives, color: p.passiveBar },
-            { key: 'promoters', label: `Promotores ${share(summary.promoters)}`, value: summary.promoters, color: p.promoterBar },
-          ]}
-        />
-      </AppStack>
-    </AppCard>
-  );
-}
 
 export function OverviewPage() {
   const client = useClient();
@@ -123,39 +89,19 @@ export function OverviewPage() {
                 showIcon
               />
             ) : null}
-            <AppGrid columns={{ base: 2, lg: 4 }} tight>
-              <AppReveal index={0}>
-                <AppStatistic title="Respostas" value={summary.total} format={formatNumber} hint="no recorte atual" />
-              </AppReveal>
-              <AppReveal index={1}>
-                <AppStatistic title="Promotores" value={summary.promoters} format={formatNumber} tone="promoter" hint={`${formatPercent(summary.promoters, summary.total)} · notas 9 e 10`} />
-              </AppReveal>
-              <AppReveal index={2}>
-                <AppStatistic title="Neutros" value={summary.passives} format={formatNumber} tone="passive" hint={`${formatPercent(summary.passives, summary.total)} · notas 7 e 8`} />
-              </AppReveal>
-              <AppReveal index={3}>
-                <AppStatistic title="Detratores" value={summary.detractors} format={formatNumber} tone="detractor" hint={`${formatPercent(summary.detractors, summary.total)} · notas de 0 a 6`} />
-              </AppReveal>
-            </AppGrid>
-
-            <AppGrid columns={{ base: 1 }} twelve>
-              <AppGridItem span={5}>
-                <AppReveal index={4}>
+            <div className="ih-dashboard">
+              <div className="ih-dashboard-main">
+                <AppReveal index={0}>
                   <NpsCard summary={summary} />
                 </AppReveal>
-              </AppGridItem>
-              <AppGridItem span={7}>
-                <AppReveal index={5}>
+                <AppReveal index={1}>
                   <TimelineCard timelineQuery={timeline} />
                 </AppReveal>
-              </AppGridItem>
-            </AppGrid>
-
-            <AppGrid columns={{ base: 1 }} twelve>
-              <AppGridItem span={5}>
-                <AppReveal index={6}>
+                <AppReveal index={2}>
+                  <ThemesCard analysis={analysis} />
+                </AppReveal>
+                <AppReveal index={3}>
                   <ChartCard
-                    fullHeight
                     title="Distribuição das notas"
                     description="Quantas respostas recebeu cada nota de 0 a 10."
                     chart={<DistributionChart bins={distribution} />}
@@ -163,15 +109,14 @@ export function OverviewPage() {
                     table={<DistributionTable bins={distribution} />}
                   />
                 </AppReveal>
-              </AppGridItem>
-              <AppGridItem span={7}>
-                <AppReveal index={7}>
-                  <ThemesCard analysis={analysis} />
+              </div>
+              <div className="ih-dashboard-aside">
+                <AppReveal index={1}>
+                  <SynthesisPanel total={summary.total} />
                 </AppReveal>
-              </AppGridItem>
-            </AppGrid>
-
-            <HighlightsSection analysis={analysis} />
+                <HighlightsSection analysis={analysis} />
+              </div>
+            </div>
           </>
         )}
       </QueryView>
@@ -185,7 +130,7 @@ function TimelineCard({ timelineQuery }: { timelineQuery: UseQueryResult<Timelin
     return (
       <AppCard>
         <AppStack gap={3}>
-          <AppTitle level={2}>Evolução do NPS</AppTitle>
+          <AppTitle level={2}>Evolução semanal do NPS</AppTitle>
           <AppParagraph tone="muted" small>
             Resultado parcial: os indicadores ao lado carregaram, mas esta série não.
           </AppParagraph>
@@ -200,55 +145,68 @@ function TimelineCard({ timelineQuery }: { timelineQuery: UseQueryResult<Timelin
   }
   return (
     <ChartCard
-      fullHeight
       title="Evolução semanal do NPS"
-      description="NPS calculado por semana de envio. Pontos vazados: poucas respostas na semana."
+      description={`Semanas com menos de ${LOW_SAMPLE_THRESHOLD} respostas ficam vazadas.`}
       chart={<TimelineChart points={points} />}
       table={<TimelineTable points={points} />}
     />
   );
 }
 
+const THEMES_SHOWN = 6;
+
+function ThemeBar({ theme, max }: { theme: ThemeStat; max: number }) {
+  const scale = (count: number) => `${(count / max) * 100}%`;
+  return (
+    <span className="ih-theme-bar" aria-hidden="true">
+      {theme.detractors > 0 ? <span className="is-negative" style={{ width: scale(theme.detractors) }} /> : null}
+      {theme.passives > 0 ? <span className="is-neutral" style={{ width: scale(theme.passives) }} /> : null}
+      {theme.promoters > 0 ? <span className="is-positive" style={{ width: scale(theme.promoters) }} /> : null}
+    </span>
+  );
+}
+
 function ThemesCard({ analysis }: { analysis: UseQueryResult<AnalysisData> }) {
   const surveyId = useSurveyId();
+  const p = PALETTES[useThemeMode()];
+  const headingId = useId();
   if (analysis.isPending) return <LoadingBlock label="Carregando temas" height={340} />;
-  const themes: ThemeStat[] = analysis.data?.themes.slice(0, 6) ?? [];
+  const themes: ThemeStat[] = analysis.data?.themes.slice(0, THEMES_SHOWN) ?? [];
   const max = Math.max(1, ...themes.map((theme) => theme.mentions));
   return (
-    <AppCard role="region" aria-label="Temas principais" fullHeight>
+    <AppCard role="region" aria-label="Temas principais">
       <AppStack gap={4}>
-        <div className="ih-row ih-between ih-start ih-gap-3">
-          <div className="ih-fill" style={{ flexBasis: '14rem' }}>
-            <AppTitle level={2}>Do que as pessoas falam</AppTitle>
-            <AppParagraph tone="muted" small>
-              Temas mais citados e o sentimento de quem os cita.
-            </AppParagraph>
-          </div>
-          <NavButton size="sm" to="/s/$surveyId/temas" params={{ surveyId }} search={(previous: object) => previous}>
-            Mapa de temas
-            <ArrowRightOutlined aria-hidden="true" />
-          </NavButton>
+        <div className="ih-row ih-between ih-gap-3">
+          <AppTitle level={2} id={headingId}>
+            Temas mais citados
+          </AppTitle>
+          <AppLegend
+            label="Legenda das barras de tema"
+            items={[
+              { key: 'negative', label: 'Detratores', color: p.detractorBar },
+              { key: 'neutral', label: 'Neutros', color: p.passiveBar },
+              { key: 'positive', label: 'Promotores', color: p.promoterBar },
+            ]}
+          />
         </div>
         {themes.length === 0 ? (
           <AppParagraph tone="muted">Nenhum tema recorrente neste recorte.</AppParagraph>
         ) : (
-          <ul className="ih-stack ih-gap-1" style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+          <ul className="ih-theme-list" aria-labelledby={headingId}>
             {themes.map((theme, index) => {
-              const label = sentimentLabel(theme.sentiment);
-              const style = SENTIMENT_STYLE[label];
+              const style = SENTIMENT_STYLE[sentimentLabel(theme.sentiment)];
               return (
-                <li key={theme.theme}>
+                <li key={theme.theme} style={{ ['--i' as string]: index }}>
                   <Link to="/s/$surveyId/temas" params={{ surveyId }} search={(previous) => ({ ...previous, t: theme.theme })} className="ih-theme-row">
-                    <strong>{theme.label}</strong>
-                    <span className="ih-bar" aria-hidden="true">
-                      <span style={{ width: `${(theme.mentions / max) * 100}%`, background: BAR_VAR[label], ['--i' as string]: index }} />
-                    </span>
-                    <span className="ih-row ih-gap-2 ih-nowrap">
-                      <AppText tone="muted" small tabular>
-                        {formatNumber(theme.mentions)}
-                        <span className="ih-sr-only"> menções,</span>
-                      </AppText>
-                      <ThemeSentimentTag stat={theme} style={style} />
+                    <span className="ih-theme-row-label">{theme.label}</span>
+                    <ThemeBar theme={theme} max={max} />
+                    <span className="ih-theme-row-count">
+                      {formatNumber(theme.mentions)}
+                      <span className="ih-sr-only">
+                        {' '}
+                        menções: {theme.detractors} detratores, {theme.passives} neutros e {theme.promoters} promotores. NPS {formatNps(theme.sentiment)}, sentimento{' '}
+                        {style.label.toLowerCase()}. Abrir no mapa de temas
+                      </span>
                     </span>
                   </Link>
                 </li>
@@ -256,20 +214,17 @@ function ThemesCard({ analysis }: { analysis: UseQueryResult<AnalysisData> }) {
             })}
           </ul>
         )}
-        <AppParagraph tone="muted" small>
-          O número ao lado de cada tema é o NPS de quem o cita: acima de +15 é sentimento positivo, abaixo de −15 é negativo. Clique em um tema para ler as falas.
-        </AppParagraph>
+        <div className="ih-row ih-between ih-gap-3">
+          <AppParagraph tone="muted" small>
+            Cada barra mostra quem cita o tema. Clique em um tema para ler as falas.
+          </AppParagraph>
+          <NavButton size="sm" variant="ghost" to="/s/$surveyId/temas" params={{ surveyId }} search={(previous: object) => previous}>
+            Mapa de temas
+            <ArrowRightOutlined aria-hidden="true" />
+          </NavButton>
+        </div>
       </AppStack>
     </AppCard>
-  );
-}
-
-function ThemeSentimentTag({ stat, style }: { stat: ThemeStat; style: (typeof SENTIMENT_STYLE)[SentimentLabel] }) {
-  return (
-    <AppTag tone={style.tone} icon={style.icon}>
-      {formatNps(stat.sentiment)}
-      <span className="ih-sr-only"> de NPS, sentimento {style.label.toLowerCase()}. Abrir no mapa de temas</span>
-    </AppTag>
   );
 }
 
@@ -278,46 +233,23 @@ function HighlightsSection({ analysis }: { analysis: UseQueryResult<AnalysisData
   const highlights = analysis.data?.highlights ?? [];
   if (highlights.length === 0) return null;
   return (
-    <section aria-label="Falas em destaque">
-      <AppStack gap={3}>
-        <div>
-          <AppTitle level={2}>Falas em destaque</AppTitle>
-          <AppParagraph tone="muted" small>
-            Os comentários mais detalhados de quem elogia e de quem critica.
-          </AppParagraph>
-        </div>
-        <AppGrid columns={{ base: 1, md: 2 }}>
-          {highlights.map(({ response, tone }, index) => (
-            <AppReveal key={response.id} index={index}>
-              <AppCard fullHeight>
-                <figure className="ih-figure">
-                  {tone === 'praise' ? (
-                    <SmileOutlined aria-hidden="true" className="ih-figure-mark" style={{ color: 'var(--ih-promoter)' }} />
-                  ) : (
-                    <FrownOutlined aria-hidden="true" className="ih-figure-mark" style={{ color: 'var(--ih-detractor)' }} />
-                  )}
-                  <blockquote className="ih-quote ih-highlight-quote">{response.comment}</blockquote>
-                  <ThemeChips comment={response.comment} />
-                  <figcaption className="ih-row ih-gap-3 ih-nowrap">
-                    <Avatar respondentId={response.respondentId} />
-                    <span className="ih-fill">
-                      <AppText strong block>
-                        {personOf(response.respondentId).name}
-                      </AppText>
-                      <AppText tone="muted" small>
-                        Nota {response.npsScore} · {tone === 'praise' ? 'elogio' : 'crítica'}
-                      </AppText>
-                    </span>
-                    <AppButton size="sm" onClick={() => patch({ r: response.id })} aria-label={`Abrir resposta ${response.id}`}>
-                      Abrir
-                    </AppButton>
-                  </figcaption>
-                </figure>
-              </AppCard>
-            </AppReveal>
-          ))}
-        </AppGrid>
-      </AppStack>
+    <section aria-label="Falas em destaque" className="ih-stack ih-gap-5">
+      {highlights.map(({ response, tone }, index) => (
+        <AppReveal key={response.id} index={index + 2}>
+          <figure className={`ih-quote-card${index === 0 ? ' is-lead' : ''}`}>
+            <span className={`ih-quote-kicker${tone === 'praise' ? '' : ' is-negative'}`}>{tone === 'praise' ? 'Fala em destaque' : 'Ponto de atenção'}</span>
+            <blockquote className="ih-quote">“{response.comment}”</blockquote>
+            <figcaption className="ih-quote-caption">
+              <span>
+                {NPS_SINGULAR[classifyNps(response.npsScore)]}, nota {response.npsScore}, {PLAN_LABELS[response.plan]}
+              </span>
+              <AppButton size="sm" variant="link" onClick={() => patch({ r: response.id })} aria-label={`Abrir resposta ${response.id}`}>
+                Abrir resposta
+              </AppButton>
+            </figcaption>
+          </figure>
+        </AppReveal>
+      ))}
     </section>
   );
 }

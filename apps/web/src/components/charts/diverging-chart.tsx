@@ -28,7 +28,7 @@ export function divergingOption(stats: readonly SegmentDelta[], dimension: Segme
         const stat = stats[dataIndex];
         if (!stat) return '';
         const small = stat.lowSample ? `<div style="color:${p.warnFg};font-size:12px;margin-top:4px">Amostra pequena: o NPS varia muito com poucos dados</div>` : '';
-        return `<div style="font-size:12px;color:${p.muted}">${names[dataIndex] ?? ''}</div><div style="font-family:'Fraunces Variable',serif;font-size:22px;font-weight:600">NPS ${formatNps(stat.nps)}</div><div style="font-size:12px;color:${p.muted}">${formatPoints(stat.delta)} em relação ao geral · ${formatNumber(stat.count)} respostas</div>${small}`;
+        return `<div style="font-size:12px;color:${p.muted}">${names[dataIndex] ?? ''}</div><div style="font-size:20px;font-weight:700;font-variant-numeric:tabular-nums">NPS ${formatNps(stat.nps)}</div><div style="font-size:12px;color:${p.muted}">${formatPoints(stat.delta)} em relação ao geral · ${formatNumber(stat.count)} respostas</div>${small}`;
       },
     },
     xAxis: {
@@ -37,7 +37,7 @@ export function divergingOption(stats: readonly SegmentDelta[], dimension: Segme
       max: bound,
       splitNumber: 4,
       axisLabel: { color: p.muted, fontFamily: FONT_SANS, fontSize: 11, formatter: (value: number) => formatNps(value) },
-      splitLine: { lineStyle: { color: p.line, type: 'dashed' } },
+      splitLine: { lineStyle: { color: p.line, type: 'solid' } },
       name: '← abaixo do geral · acima do geral →',
       nameLocation: 'middle',
       nameGap: 28,
